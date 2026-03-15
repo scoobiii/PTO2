@@ -539,14 +539,14 @@ const ScoreBar = ({ us, iran }: { us: number, iran: number }) => {
   const iranPct = (iran / total) * 100;
 
   return (
-    <div className="relative h-8 bg-[#0a0f1e] border border-[#12203a] overflow-hidden flex">
+    <div className="h-4 bg-[#12203a]/50 rounded-full overflow-hidden flex relative border border-[#12203a]">
       <motion.div 
         initial={{ width: 0 }}
         animate={{ width: `${usPct}%` }}
         transition={{ duration: 1.5, ease: "circOut" }}
         className="h-full bg-gradient-to-r from-[#1a3a6e] to-[#2979ff] flex items-center justify-end pr-3"
       >
-        <span className="text-[9px] font-mono text-white/70 uppercase tracking-wider">Coalizão</span>
+        <span className="text-[8px] font-mono text-white/70 uppercase tracking-wider font-bold">EUA+IL</span>
       </motion.div>
       <motion.div 
         initial={{ width: 0 }}
@@ -554,9 +554,9 @@ const ScoreBar = ({ us, iran }: { us: number, iran: number }) => {
         transition={{ duration: 1.5, ease: "circOut" }}
         className="h-full bg-gradient-to-l from-[#5a0a14] to-[#ff2233] flex items-center pl-3"
       >
-        <span className="text-[9px] font-mono text-white/70 uppercase tracking-wider">Irão</span>
+        <span className="text-[8px] font-mono text-white/70 uppercase tracking-wider font-bold">Irão</span>
       </motion.div>
-      <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/20 z-10" />
+      <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/40 z-10 shadow-[0_0_10px_white]" />
     </div>
   );
 };
@@ -584,23 +584,25 @@ const DimensionRow: React.FC<{ dim: Dimension }> = ({ dim }) => (
 );
 
 const ForecastCard: React.FC<{ scenario: ForecastScenario }> = ({ scenario }) => (
-  <div className={`bg-[#04060d]/80 border border-[#12203a] p-4 relative overflow-hidden group hover:border-[#2979ff]/50 transition-colors`}>
-    <div className={`absolute top-0 left-0 right-0 h-0.5 ${
+  <div className={`bg-[#080d1a] border border-[#12203a] p-5 relative overflow-hidden group hover:border-[#2979ff]/50 transition-all duration-300 hover:shadow-[0_0_20px_rgba(41,121,255,0.1)]`}>
+    <div className={`absolute top-0 left-0 right-0 h-1 ${
       scenario.status === 'bull' ? 'bg-[#00e676]' : 
       scenario.status === 'bear' ? 'bg-[#ff2233]' : 'bg-[#ffc600]'
     }`} />
-    <div className="text-[9px] font-mono text-[#3a5070] uppercase tracking-widest mb-1.5">{scenario.horizon}</div>
-    <div className="text-[12px] font-orbitron font-bold text-[#e8f2ff] mb-2 tracking-wider">{scenario.title}</div>
-    <p className="text-[10px] leading-relaxed text-[#b8cce0] mb-3">{scenario.body}</p>
-    <div className="flex flex-wrap gap-1.5">
-      <span className={`text-[9px] font-mono px-1.5 py-0.5 border ${
-        scenario.status === 'bull' ? 'border-[#00e676] text-[#00e676]' : 
-        scenario.status === 'bear' ? 'border-[#ff2233] text-[#ff2233]' : 'border-[#ffc600] text-[#ffc600]'
+    <div className="flex justify-between items-start mb-3">
+      <div className="text-[8px] font-mono text-[#3a5070] uppercase tracking-[2px]">{scenario.horizon}</div>
+      <span className={`text-[9px] font-mono px-2 py-0.5 rounded-sm border ${
+        scenario.status === 'bull' ? 'border-[#00e676]/30 text-[#00e676] bg-[#00e676]/5' : 
+        scenario.status === 'bear' ? 'border-[#ff2233]/30 text-[#ff2233] bg-[#ff2233]/5' : 'border-[#ffc600]/30 text-[#ffc600] bg-[#ffc600]/5'
       }`}>
-        Prob: {scenario.prob}%
+        {scenario.prob}% PROB
       </span>
+    </div>
+    <div className="text-[13px] font-orbitron font-bold text-[#e8f2ff] mb-2 tracking-wider group-hover:text-[#2979ff] transition-colors">{scenario.title}</div>
+    <p className="text-[10px] leading-relaxed text-[#b8cce0] mb-4 opacity-80">{scenario.body}</p>
+    <div className="flex flex-wrap gap-1.5">
       {scenario.tags.map(tag => (
-        <span key={tag} className="text-[9px] font-mono px-1.5 py-0.5 border border-[#3a5070] text-[#3a5070]">
+        <span key={tag} className="text-[8px] font-mono px-2 py-0.5 bg-[#12203a]/30 border border-[#12203a] text-[#3a5070] uppercase tracking-tighter">
           {tag}
         </span>
       ))}
@@ -678,6 +680,12 @@ const MAP_POINTS: MapPoint[] = [
   { id: 'us5', name: 'Prince Sultan Air Base', lat: 24.06, lng: 47.56, type: 'military_base', status: 'operational', country: 'Arábia Saudita', personnel: '~2.300', description: 'Defesa antimísseis (Patriot/THAAD); suporte a aeronaves.' },
   { id: 'us6', name: 'Porto de Duqm', lat: 19.67, lng: 57.70, type: 'military_base', status: 'operational', country: 'Omã', personnel: 'Rotativo', description: 'Suporte logístico naval e pré-posicionado.' },
   
+  // Allied Infrastructure
+  { id: 'al1', name: 'AWS UAE (me-central-1)', lat: 25.20, lng: 55.30, type: 'telecom', status: 'critical', country: 'Emirados Árabes', description: 'Cluster de Data Centers AWS. Interrupção total de serviços.' },
+  { id: 'al2', name: 'AWS Bahrain (me-south-1)', lat: 26.00, lng: 50.50, type: 'telecom', status: 'alert', country: 'Bahrein', description: 'Cluster de Data Centers AWS. Operando em modo de contingência.' },
+  { id: 'al3', name: 'Al Minhad Air Base', lat: 25.03, lng: 55.22, type: 'military_base', status: 'alert', country: 'Emirados Árabes', description: 'Base aérea aliada (RAF/Austrália). Operações suspensas.' },
+  { id: 'al4', name: 'Camp de la Paix', lat: 24.48, lng: 54.32, type: 'military_base', status: 'damaged', country: 'Emirados Árabes', description: 'Base Naval Francesa em Abu Dhabi. Danos por estilhaços.' },
+
   // Power
   { id: 'p1', name: 'Usina Nuclear de Bushehr', lat: 28.96, lng: 50.83, type: 'power', status: 'operational', description: 'Capacidade: 1000MW. Monitoramento AIEA ativo.' },
   { id: 'p2', name: 'Barragem de Karun-3', lat: 31.81, lng: 50.15, type: 'power', status: 'operational', description: 'Hidroelétrica crítica. Nível do reservatório: 78%.' },
@@ -751,10 +759,229 @@ const IMPACT_POINTS: ImpactPoint[] = [
     },
     intensity: 0.95,
     timestamp: '2026-03-14T03:10:00Z'
+  },
+  {
+    id: 'allied-1',
+    name: 'AWS UAE (me-central-1)',
+    lat: 25.20,
+    lng: 55.30,
+    type: 'infra',
+    damage: {
+      material: 'Sistemas de Resfriamento e Subestação Elétrica',
+      structural: 'Dano crítico em 2 zonas de disponibilidade',
+      financial: '$3.5B (Impacto Econômico)',
+      human: '0 KIA, 5 WIA (Staff Técnico)'
+    },
+    intensity: 0.95,
+    timestamp: '2026-03-03T10:00:00Z'
+  },
+  {
+    id: 'allied-2',
+    name: 'Camp de la Paix (Abu Dhabi)',
+    lat: 24.48,
+    lng: 54.32,
+    type: 'military',
+    damage: {
+      material: 'Doca seca e 1x Navio de Patrulha',
+      structural: 'Armazém logístico destruído',
+      financial: '$120M est.',
+      human: '2 KIA, 8 WIA'
+    },
+    intensity: 0.7,
+    timestamp: '2026-03-14T07:30:00Z'
   }
 ];
 
 // --- Components ---
+
+const AlliedImpactDashboard = () => {
+  return (
+    <section className="bg-[#080d1a] border border-[#12203a] p-6 mt-6">
+      <div className="flex justify-between items-center mb-6 border-b border-[#12203a] pb-4">
+        <h2 className="font-orbitron text-xs font-bold text-[#aa44ff] tracking-[3px] uppercase flex items-center gap-2">
+          <Globe2 size={14} /> IMPACTO EM PAÍSES ALIADOS & INFRAESTRUTURA
+        </h2>
+        <span className="text-[9px] font-mono text-[#3a5070] uppercase tracking-widest">RELATÓRIO DE DANOS COLATERAIS</span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Digital Infrastructure */}
+        <div className="space-y-4">
+          <div className="text-[10px] font-orbitron font-bold text-[#e8f2ff] uppercase tracking-widest flex items-center gap-2">
+            <Cpu size={12} className="text-[#aa44ff]" /> Cluster de IA e Data Centers (AWS)
+          </div>
+          <div className="bg-[#04060d] border border-[#12203a] p-4 space-y-3">
+            <div className="flex justify-between items-center border-b border-[#12203a] pb-2">
+              <span className="text-[10px] font-mono text-[#b8cce0]">AWS UAE (me-central-1)</span>
+              <span className="px-2 py-0.5 bg-[#ff2233]/20 border border-[#ff2233] text-[#ff2233] text-[8px] font-mono uppercase">Offline / Danificado</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-[#12203a] pb-2">
+              <span className="text-[10px] font-mono text-[#b8cce0]">AWS Bahrain (me-south-1)</span>
+              <span className="px-2 py-0.5 bg-[#ffc600]/20 border border-[#ffc600] text-[#ffc600] text-[8px] font-mono uppercase">Degradação Severa</span>
+            </div>
+            <p className="text-[9px] font-mono text-[#3a5070] leading-tight">
+              Impacto: Interrupção de serviços governamentais e financeiros em 4 países do CCG. 
+              Dano estrutural confirmado em sistemas de resfriamento e geradores externos.
+            </p>
+          </div>
+        </div>
+
+        {/* Military & Communication */}
+        <div className="space-y-4">
+          <div className="text-[10px] font-orbitron font-bold text-[#e8f2ff] uppercase tracking-widest flex items-center gap-2">
+            <Wifi size={12} className="text-[#aa44ff]" /> Comunicações e Bases Regionais
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            <div className="bg-[#04060d] border border-[#12203a] p-3 flex justify-between items-center">
+              <div>
+                <div className="text-[10px] font-mono text-[#e8f2ff]">Al Dhafra (EAU)</div>
+                <div className="text-[8px] font-mono text-[#3a5070]">Explosões secundárias detectadas</div>
+              </div>
+              <ShieldAlert size={14} className="text-[#ff2233]" />
+            </div>
+            <div className="bg-[#04060d] border border-[#12203a] p-3 flex justify-between items-center">
+              <div>
+                <div className="text-[10px] font-mono text-[#e8f2ff]">Al Minhad (EAU)</div>
+                <div className="text-[8px] font-mono text-[#3a5070]">Operações RAF/Austrália suspensas</div>
+              </div>
+              <ShieldAlert size={14} className="text-[#ffc600]" />
+            </div>
+            <div className="bg-[#04060d] border border-[#12203a] p-3 flex justify-between items-center">
+              <div>
+                <div className="text-[10px] font-mono text-[#e8f2ff]">Camp de la Paix (Abu Dhabi)</div>
+                <div className="text-[8px] font-mono text-[#3a5070]">Base naval francesa atingida</div>
+              </div>
+              <ShieldAlert size={14} className="text-[#ff2233]" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const EconomicIntelligence = () => {
+  return (
+    <section className="bg-[#080d1a] border border-[#12203a] p-6 mt-6">
+      <div className="flex justify-between items-center mb-6 border-b border-[#12203a] pb-4">
+        <h2 className="font-orbitron text-xs font-bold text-[#ffc600] tracking-[3px] uppercase flex items-center gap-2">
+          <Zap size={14} /> INTELIGÊNCIA ECONÔMICA & CRASH GLOBAL
+        </h2>
+        <span className="text-[9px] font-mono text-[#3a5070] uppercase tracking-widest">ANÁLISE DE RISCO SISTÊMICO</span>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_350px] gap-8">
+        {/* War-Inflation Index */}
+        <div className="space-y-4">
+          <div className="text-[10px] font-orbitron font-bold text-[#e8f2ff] uppercase tracking-widest mb-2">
+            Índice de Vulnerabilidade "War-Inflation" (Estilo Big Mac)
+          </div>
+          <div className="overflow-x-auto border border-[#12203a]">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#12203a]/30 border-b border-[#12203a]">
+                  <th className="p-2 text-[8px] font-mono text-[#3a5070] uppercase">País</th>
+                  <th className="p-2 text-[8px] font-mono text-[#3a5070] uppercase">Risco Inflação</th>
+                  <th className="p-2 text-[8px] font-mono text-[#3a5070] uppercase">Juros (Proj.)</th>
+                  <th className="p-2 text-[8px] font-mono text-[#3a5070] uppercase text-right">Vulnerabilidade</th>
+                </tr>
+              </thead>
+              <tbody className="text-[10px] font-mono">
+                <tr className="border-b border-[#12203a]/50 hover:bg-[#ffc600]/5">
+                  <td className="p-2 text-[#b8cce0]">Egito</td>
+                  <td className="p-2 text-[#ff2233]">+45%</td>
+                  <td className="p-2 text-[#ff2233]">32%</td>
+                  <td className="p-2 text-right text-[#ff2233]">CRÍTICA</td>
+                </tr>
+                <tr className="border-b border-[#12203a]/50 hover:bg-[#ffc600]/5">
+                  <td className="p-2 text-[#b8cce0]">Turquia</td>
+                  <td className="p-2 text-[#ff2233]">+85%</td>
+                  <td className="p-2 text-[#ffc600]">55%</td>
+                  <td className="p-2 text-right text-[#ff2233]">EXTREMA</td>
+                </tr>
+                <tr className="border-b border-[#12203a]/50 hover:bg-[#ffc600]/5">
+                  <td className="p-2 text-[#b8cce0]">Paquistão</td>
+                  <td className="p-2 text-[#ffc600]">+38%</td>
+                  <td className="p-2 text-[#ffc600]">28%</td>
+                  <td className="p-2 text-right text-[#ffc600]">ALTA</td>
+                </tr>
+                <tr className="border-b border-[#12203a]/50 hover:bg-[#ffc600]/5">
+                  <td className="p-2 text-[#b8cce0]">Líbano</td>
+                  <td className="p-2 text-[#ff2233]">+250%</td>
+                  <td className="p-2 text-[#3a5070]">N/A</td>
+                  <td className="p-2 text-right text-[#ff2233]">COLAPSO</td>
+                </tr>
+                <tr className="hover:bg-[#ffc600]/5">
+                  <td className="p-2 text-[#b8cce0]">Índia</td>
+                  <td className="p-2 text-[#00e676]">+8%</td>
+                  <td className="p-2 text-[#00e676]">7.5%</td>
+                  <td className="p-2 text-right text-[#00e676]">MODERADA</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Crash Thresholds */}
+        <div className="space-y-6">
+          <div className="bg-[#04060d] border border-[#ff2233]/30 p-4 relative">
+            <div className="absolute top-0 right-0 p-1 bg-[#ff2233] text-black text-[7px] font-bold uppercase">Crash Point</div>
+            <div className="text-[10px] font-orbitron font-bold text-[#ff2233] uppercase mb-4">Gatilhos de Colapso Global</div>
+            
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-[9px] font-mono mb-1">
+                  <span className="text-[#3a5070]">BRENT $120/BBL</span>
+                  <span className="text-[#ffc600]">RECESSÃO GLOBAL</span>
+                </div>
+                <div className="h-1.5 bg-[#12203a] rounded-full overflow-hidden">
+                  <div className="h-full bg-[#ffc600]" style={{ width: '77%' }} />
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between text-[9px] font-mono mb-1">
+                  <span className="text-[#3a5070]">BRENT $150/BBL</span>
+                  <span className="text-[#ff2233]">CRASH SISTÊMICO</span>
+                </div>
+                <div className="h-1.5 bg-[#12203a] rounded-full overflow-hidden">
+                  <div className="h-full bg-[#ff2233]" style={{ width: '62%' }} />
+                </div>
+              </div>
+            </div>
+            
+            <p className="mt-4 text-[9px] font-mono text-[#3a5070] leading-tight italic">
+              * Atualmente em $92.69. A paralisia total de Hormuz projeta $150+ em 72h.
+            </p>
+          </div>
+
+          {/* Vulnerable Governments */}
+          <div className="bg-[#04060d] border border-[#12203a] p-4">
+            <div className="text-[10px] font-orbitron font-bold text-[#e8f2ff] uppercase mb-3 border-b border-[#12203a] pb-1">Governos Vulnerabilizados</div>
+            <ul className="space-y-2">
+              <li className="flex items-center gap-2 text-[10px] font-mono">
+                <div className="w-1 h-1 bg-[#ff2233]" />
+                <span className="text-[#b8cce0]">Irã: Liderança Decapitada / C2 Comprometido</span>
+              </li>
+              <li className="flex items-center gap-2 text-[10px] font-mono">
+                <div className="w-1 h-1 bg-[#ffc600]" />
+                <span className="text-[#b8cce0]">Jordânia: Pressão Interna / Protestos Pró-Irã</span>
+              </li>
+              <li className="flex items-center gap-2 text-[10px] font-mono">
+                <div className="w-1 h-1 bg-[#ffc600]" />
+                <span className="text-[#b8cce0]">Kuwait: Infraestrutura sob Fogo Direto</span>
+              </li>
+              <li className="flex items-center gap-2 text-[10px] font-mono">
+                <div className="w-1 h-1 bg-[#ff2233]" />
+                <span className="text-[#b8cce0]">Líbano: Colapso Total de Serviços Básicos</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
 
 const RadarOverlay = ({ currentDay }: { currentDay: number }) => {
   const [rotation, setRotation] = useState(0);
@@ -1253,40 +1480,74 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#04060d] text-[#b8cce0] font-inter selection:bg-[#2979ff]/30">
       {/* Header */}
-      <header className="px-8 py-4 border-b border-[#12203a] flex items-center justify-between bg-gradient-to-r from-[#ff2233]/5 via-transparent to-[#2979ff]/5">
-        <div>
-          <h1 className="font-orbitron text-xl font-black text-[#e8f2ff] tracking-[3px] uppercase">
-            ⚡ WAR FORECAST · PROPHET ENGINE
-          </h1>
-          <p className="font-mono text-[10px] text-[#3a5070] tracking-[2px] mt-1 uppercase">
-            LINHA VITÓRIA/DERROTA · DECOMPOSIÇÃO TEMPORAL · SATÉLITE OPENINFRA
-          </p>
-        </div>
-        <div className="flex gap-6 items-center">
-          {/* Timeline Controller */}
-          <div className="flex flex-col gap-1 min-w-[200px]">
-            <div className="flex justify-between text-[8px] font-mono text-[#3a5070] uppercase">
-              <span>Dia 1</span>
-              <span>Dia {currentDay}</span>
-              <span>Dia 15</span>
-            </div>
-            <input 
-              type="range" 
-              min="1" 
-              max="15" 
-              value={currentDay}
-              onChange={(e) => setCurrentDay(parseInt(e.target.value))}
-              className="w-full h-1 bg-[#12203a] rounded-lg appearance-none cursor-pointer accent-[#00cfff]"
-            />
+      <header className="px-6 py-3 border-b border-[#12203a] flex items-center justify-between bg-[#080d1a] sticky top-0 z-[2000] backdrop-blur-md bg-opacity-90">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-[#ff2233]/10 border border-[#ff2233]/30 rounded-lg flex items-center justify-center">
+            <Shield className="text-[#ff2233]" size={20} />
           </div>
-
-          <div className="flex gap-3">
-            <div className="px-3 py-1 border border-[#aa44ff] text-[#aa44ff] bg-[#aa44ff]/10 text-[9px] font-mono tracking-widest uppercase">
-              PROPHET-JS v1.0
+          <div>
+            <h1 className="font-orbitron text-lg font-black text-[#e8f2ff] tracking-[4px] uppercase leading-none">
+              PROPHET ENGINE <span className="text-[#ff2233] text-xs ml-1">v2.4</span>
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-2 h-2 rounded-full bg-[#00e676] animate-pulse" />
+              <p className="font-mono text-[8px] text-[#3a5070] tracking-[2px] uppercase">
+                SITREP: ACTIVE CONFLICT · GULF THEATER · D+{currentDay}
+              </p>
             </div>
-            <div className="px-3 py-1 border border-[#00e676] text-[#00e676] bg-[#00e676]/10 text-[9px] font-mono tracking-widest uppercase flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#00e676] animate-pulse" />
-              LIVE D+{currentDay} · {currentTimeline.date}
+          </div>
+        </div>
+
+        <div className="flex-1 max-w-md mx-8">
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between items-center px-1">
+              <span className="text-[7px] font-mono text-[#3a5070] uppercase tracking-widest">Temporal Vector Control</span>
+              <span className="text-[9px] font-mono text-[#00cfff] font-bold">15 MAR 2026</span>
+            </div>
+            <div className="relative h-6 flex items-center">
+              <div className="absolute inset-0 bg-[#12203a]/30 rounded-full border border-[#12203a]/50" />
+              <input 
+                type="range" 
+                min="1" 
+                max="15" 
+                value={currentDay}
+                onChange={(e) => setCurrentDay(parseInt(e.target.value))}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+              <div 
+                className="h-1 bg-gradient-to-r from-[#2979ff] to-[#00cfff] rounded-full transition-all duration-300 relative"
+                style={{ width: `${(currentDay / 15) * 100}%` }}
+              >
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-2 border-[#00cfff] rounded-full shadow-[0_0_10px_#00cfff]" />
+              </div>
+              <div className="absolute inset-0 flex justify-between px-2 pointer-events-none">
+                {[1, 4, 8, 12, 15].map(d => (
+                  <div key={d} className="flex flex-col items-center justify-center">
+                    <div className="w-0.5 h-1 bg-[#3a5070]" />
+                    <span className="text-[6px] font-mono text-[#3a5070] mt-0.5">{d}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-4 items-center">
+          <div className="hidden xl:flex flex-col items-end border-r border-[#12203a] pr-4">
+            <span className="text-[7px] font-mono text-[#3a5070] uppercase">System Load</span>
+            <div className="flex gap-0.5 mt-1">
+              {[1,2,3,4,5,6,7,8].map(i => (
+                <div key={i} className={`w-1 h-2 ${i < 6 ? 'bg-[#00e676]' : 'bg-[#12203a]'}`} />
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button className="p-2 border border-[#12203a] hover:bg-[#12203a] transition-colors text-[#3a5070] hover:text-[#e8f2ff]">
+              <Settings size={16} />
+            </button>
+            <div className="px-4 py-1.5 bg-[#ff2233] text-black text-[10px] font-orbitron font-black tracking-widest uppercase flex items-center gap-2">
+              <div className="w-2 h-2 bg-black rounded-full animate-ping" />
+              Live Combat
             </div>
           </div>
         </div>
@@ -1385,6 +1646,12 @@ export default function App() {
           {/* US Military Dashboard */}
           <USMilitaryDashboard />
 
+          {/* Allied Impact Dashboard */}
+          <AlliedImpactDashboard />
+
+          {/* Economic Intelligence */}
+          <EconomicIntelligence />
+
           {/* War Balance Sheet */}
           <WarBalanceSheet />
 
@@ -1407,18 +1674,25 @@ export default function App() {
         </div>
 
         {/* Sidebar */}
-        <aside className="border-l border-[#12203a] p-6 flex flex-col gap-6 overflow-y-auto bg-[#04060d]">
+        <aside className="border-l border-[#12203a] flex flex-col overflow-y-auto bg-[#04060d] divide-y divide-[#12203a]">
           {/* OpenCL Agent Integration */}
-          <OpenCLAgent />
+          <div className="p-6">
+            <OpenCLAgent />
+          </div>
 
           {/* Tutor Agent Integration */}
-          <TutorAgent />
+          <div className="p-6">
+            <TutorAgent />
+          </div>
 
-          <div>
-            <div className="font-orbitron text-[9px] text-[#3a5070] tracking-[3px] border-b border-[#12203a] pb-2 mb-4 uppercase">
-              Situation Actual · D+14
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="font-orbitron text-[9px] text-[#3a5070] tracking-[3px] uppercase">
+                Situation Actual
+              </div>
+              <div className="text-[8px] font-mono text-[#ff2233] animate-pulse">D+{currentDay}</div>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="space-y-1">
               {[
                 { label: 'Vantagem US+IL', val: '+22 pts', color: 'text-[#00e676]' },
                 { label: 'Hormuz Status', val: 'RESTRITO', color: 'text-[#ff2233]' },
@@ -1427,39 +1701,54 @@ export default function App() {
                 { label: 'Trump Prazo', val: '4 SEM. → D+28', color: 'text-[#ffc600]' },
                 { label: 'Regime Iraniano', val: 'VACILANTE', color: 'text-[#ff2233]' },
               ].map(m => (
-                <div key={m.label} className="flex justify-between items-center py-1 border-b border-[#12203a]/50">
-                  <span className="text-[10px] text-[#3a5070]">{m.label}</span>
-                  <span className={`text-[11px] font-mono font-semibold ${m.color}`}>{m.val}</span>
+                <div key={m.label} className="flex justify-between items-center py-2 px-3 bg-[#080d1a] border border-[#12203a]/30 hover:border-[#2979ff]/30 transition-colors group">
+                  <span className="text-[9px] text-[#3a5070] uppercase font-mono group-hover:text-[#b8cce0] transition-colors">{m.label}</span>
+                  <span className={`text-[10px] font-mono font-bold ${m.color}`}>{m.val}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div>
-            <div className="font-orbitron text-[9px] text-[#3a5070] tracking-[3px] border-b border-[#12203a] pb-2 mb-4 uppercase">
+          <div className="p-6">
+            <div className="font-orbitron text-[9px] text-[#3a5070] tracking-[3px] mb-4 uppercase">
               Eventos Disruptivos
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="space-y-3">
               {[
                 { prob: '8%', color: 'border-[#ff2233] text-[#ff2233] bg-[#ff2233]/5', text: 'Irã activa dispositivo nuclear tático → Resposta US' },
                 { prob: '15%', color: 'border-[#ff6600] text-[#ff6600] bg-[#ff6600]/5', text: 'China bloqueia Taiwan simultaneamente → Duas frentes' },
                 { prob: '30%', color: 'border-[#00cfff] text-[#00cfff] bg-[#00cfff]/5', text: 'Qatar/Omã mediam ceasefire antes D+28' },
               ].map(w => (
-                <div key={w.text} className={`p-3 border-l-4 ${w.color} border border-opacity-20`}>
+                <div key={w.text} className={`p-3 border-l-4 ${w.color} border border-opacity-20 hover:bg-white/5 transition-colors cursor-help`}>
                   <div className="text-[9px] font-mono tracking-widest uppercase mb-1">🔴 PROB {w.prob}</div>
-                  <div className="text-[10px] leading-tight">{w.text}</div>
+                  <div className="text-[10px] leading-tight font-medium">{w.text}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mt-auto p-4 border border-[#12203a] bg-[#080d1a]/50">
-            <div className="font-mono text-[8px] text-[#3a5070] leading-relaxed">
-              ⚙ MODELO: Prophet-JS · Decomposição Aditiva<br/>
+          <div className="p-6 mt-auto">
+            <div className="bg-[#080d1a] border border-[#12203a] p-4 rounded-lg relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-[#2979ff] to-transparent opacity-50" />
+              <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-2 flex justify-between">
+                <span>Network Security</span>
+                <span className="text-[#00e676]">94%</span>
+              </div>
+              <div className="h-1 bg-[#12203a] rounded-full overflow-hidden mb-4">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: '94%' }}
+                  className="h-full bg-[#00e676]" 
+                />
+              </div>
+              <button className="w-full py-2 bg-[#12203a] hover:bg-[#2979ff] text-[#e8f2ff] text-[9px] font-mono uppercase transition-all duration-300 group-hover:tracking-[2px]">
+                Refresh Intel
+              </button>
+            </div>
+            <div className="mt-4 font-mono text-[7px] text-[#3a5070] leading-relaxed opacity-50">
+              ⚙ MODELO: Prophet-JS v2.4<br/>
               y(t) = trend(t) + seasonality(t) + events(t) + ε<br/>
-              Trend: linear por partes com pontos de mudança<br/>
-              Intervalo conf: 80% · Monte Carlo: 10k<br/>
-              ⚠ Modelo analítico — não substitui inteligência real
+              Intervalo conf: 80% · Monte Carlo: 10k
             </div>
           </div>
         </aside>
