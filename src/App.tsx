@@ -629,12 +629,22 @@ interface MapPoint {
   name: string;
   lat: number;
   lng: number;
-  type: 'power' | 'telecom' | 'water' | 'conflict' | 'military';
-  status: 'operational' | 'damaged' | 'critical' | 'active';
+  type: 'power' | 'telecom' | 'water' | 'conflict' | 'military' | 'military_base';
+  status: 'operational' | 'damaged' | 'critical' | 'active' | 'alert';
   description: string;
+  country?: string;
+  personnel?: string;
 }
 
 const MAP_POINTS: MapPoint[] = [
+  // US Military Bases
+  { id: 'us1', name: 'Al Udeid Air Base', lat: 25.11, lng: 51.31, type: 'military_base', status: 'operational', country: 'Qatar', personnel: '~10.000', description: 'HQ avançado do CENTCOM; coordena todas operações aéreas e drones no Oriente Médio.' },
+  { id: 'us2', name: 'Camp Arifjan', lat: 28.88, lng: 48.16, type: 'military_base', status: 'operational', country: 'Kuwait', personnel: '~13.500 (total Kuwait)', description: 'HQ Exército Central EUA; logística e staging para Iraque/Síria.' },
+  { id: 'us3', name: 'Naval Support Activity Bahrain', lat: 26.21, lng: 50.60, type: 'military_base', status: 'operational', country: 'Bahrein', personnel: '~8.500', description: 'HQ da 5ª Frota; controle do Golfo, Mar Vermelho e Oceano Índico.' },
+  { id: 'us4', name: 'Al Dhafra Air Base', lat: 24.24, lng: 54.54, type: 'military_base', status: 'operational', country: 'Emirados Árabes', personnel: 'Rotativo', description: 'Hub aéreo para reconhecimento e missões regionais.' },
+  { id: 'us5', name: 'Prince Sultan Air Base', lat: 24.06, lng: 47.56, type: 'military_base', status: 'operational', country: 'Arábia Saudita', personnel: '~2.300', description: 'Defesa antimísseis (Patriot/THAAD); suporte a aeronaves.' },
+  { id: 'us6', name: 'Porto de Duqm', lat: 19.67, lng: 57.70, type: 'military_base', status: 'operational', country: 'Omã', personnel: 'Rotativo', description: 'Suporte logístico naval e pré-posicionado.' },
+  
   // Power
   { id: 'p1', name: 'Usina Nuclear de Bushehr', lat: 28.96, lng: 50.83, type: 'power', status: 'operational', description: 'Capacidade: 1000MW. Monitoramento AIEA ativo.' },
   { id: 'p2', name: 'Barragem de Karun-3', lat: 31.81, lng: 50.15, type: 'power', status: 'operational', description: 'Hidroelétrica crítica. Nível do reservatório: 78%.' },
@@ -779,10 +789,180 @@ const ImpactTechnicalSheet = () => {
   );
 };
 
+const USMilitaryDashboard = () => {
+  return (
+    <section className="bg-[#080d1a] border border-[#12203a] p-6 mt-6">
+      <div className="flex justify-between items-center mb-6 border-b border-[#12203a] pb-4">
+        <h2 className="font-orbitron text-xs font-bold text-[#2979ff] tracking-[3px] uppercase flex items-center gap-2">
+          <Shield size={14} /> DASHBOARD: PRESENÇA MILITAR EUA NO GOLFO
+        </h2>
+        <span className="text-[9px] font-mono text-[#3a5070] uppercase tracking-widest">DADOS ATUALIZADOS MARÇO 2026</span>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Bases Table */}
+        <div className="space-y-4">
+          <div className="text-[10px] font-orbitron font-bold text-[#e8f2ff] uppercase tracking-widest mb-2">Efetivo e Instalações Principais</div>
+          <div className="overflow-x-auto border border-[#12203a]">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#12203a]/30 border-b border-[#12203a]">
+                  <th className="p-2 text-[8px] font-mono text-[#3a5070] uppercase">Base / Instalação</th>
+                  <th className="p-2 text-[8px] font-mono text-[#3a5070] uppercase">País</th>
+                  <th className="p-2 text-[8px] font-mono text-[#3a5070] uppercase text-right">Efetivo</th>
+                </tr>
+              </thead>
+              <tbody className="text-[10px] font-mono">
+                <tr className="border-b border-[#12203a]/50 hover:bg-[#2979ff]/5">
+                  <td className="p-2 text-[#b8cce0]">Al Udeid Air Base</td>
+                  <td className="p-2 text-[#3a5070]">Qatar</td>
+                  <td className="p-2 text-right text-[#2979ff]">~10.000</td>
+                </tr>
+                <tr className="border-b border-[#12203a]/50 hover:bg-[#2979ff]/5">
+                  <td className="p-2 text-[#b8cce0]">Camp Arifjan + Ali Al Salem</td>
+                  <td className="p-2 text-[#3a5070]">Kuwait</td>
+                  <td className="p-2 text-right text-[#2979ff]">~13.500</td>
+                </tr>
+                <tr className="border-b border-[#12203a]/50 hover:bg-[#2979ff]/5">
+                  <td className="p-2 text-[#b8cce0]">NSA Bahrain (5ª Frota)</td>
+                  <td className="p-2 text-[#3a5070]">Bahrein</td>
+                  <td className="p-2 text-right text-[#2979ff]">~8.500</td>
+                </tr>
+                <tr className="border-b border-[#12203a]/50 hover:bg-[#2979ff]/5">
+                  <td className="p-2 text-[#b8cce0]">Al Dhafra Air Base</td>
+                  <td className="p-2 text-[#3a5070]">EAU</td>
+                  <td className="p-2 text-right text-[#2979ff]">Rotativo</td>
+                </tr>
+                <tr className="hover:bg-[#2979ff]/5">
+                  <td className="p-2 text-[#b8cce0]">Prince Sultan Air Base</td>
+                  <td className="p-2 text-[#3a5070]">Arábia Saudita</td>
+                  <td className="p-2 text-right text-[#2979ff]">~2.300</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[8px] font-mono text-[#3a5070] italic">
+            * Total regional Golfo ≈ 35.000+ militares. Flutuações por rotação de porta-aviões.
+          </p>
+        </div>
+
+        {/* Salaries Section */}
+        <div className="space-y-4">
+          <div className="text-[10px] font-orbitron font-bold text-[#ffc600] uppercase tracking-widest mb-2">Tabela Salarial 2026 (Monthly Basic Pay)</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[#04060d] border border-[#12203a] p-3">
+              <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-2 border-b border-[#12203a] pb-1">Enlisted (Praças)</div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-[#3a5070]">E-1 (Recruta)</span>
+                  <span className="text-[#e8f2ff] font-mono">US$ 2.407</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-[#3a5070]">E-5 (Sargento)</span>
+                  <span className="text-[#e8f2ff] font-mono">US$ 4.100</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-[#3a5070]">E-6 (Staff Sgt)</span>
+                  <span className="text-[#e8f2ff] font-mono">US$ 4.760</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-[#04060d] border border-[#12203a] p-3">
+              <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-2 border-b border-[#12203a] pb-1">Officers (Oficiais)</div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-[#3a5070]">O-1 (2º Tenente)</span>
+                  <span className="text-[#e8f2ff] font-mono">US$ 4.150</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-[#3a5070]">O-4 (Major)</span>
+                  <span className="text-[#e8f2ff] font-mono">US$ 9.420</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-[#3a5070]">O-6 (Coronel)</span>
+                  <span className="text-[#e8f2ff] font-mono">US$ 15.400+</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="p-2 bg-[#ffc600]/5 border border-[#ffc600]/20 text-[9px] font-mono text-[#ffc600] leading-tight">
+            NOTA: Adicionais de Risco, Moradia (BAH) e Alimentação (BAS) no Golfo podem elevar o total real em 30-50%.
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const WarBalanceSheet = () => {
+  return (
+    <section className="bg-[#080d1a] border border-[#12203a] p-6 mt-6">
+      <div className="flex justify-between items-center mb-6 border-b border-[#12203a] pb-4">
+        <h2 className="font-orbitron text-xs font-bold text-[#ff2233] tracking-[3px] uppercase flex items-center gap-2">
+          <Target size={14} /> BALANÇO DA GUERRA: D+14 (MARÇO 2026)
+        </h2>
+        <div className="flex gap-2">
+          <span className="px-2 py-0.5 border border-[#ff2233] text-[#ff2233] text-[8px] font-mono uppercase">Escalada: 12 Países</span>
+          <span className="px-2 py-0.5 border border-[#ffc600] text-[#ffc600] text-[8px] font-mono uppercase">Hormuz: Paralisado</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-[#ff2233]/5 border border-[#ff2233]/20 p-4 text-center">
+          <div className="text-[9px] font-mono text-[#ff2233] uppercase tracking-widest mb-1">Irã (Epicentro)</div>
+          <div className="text-3xl font-orbitron font-black text-[#ff2233]">1.444+</div>
+          <div className="text-[8px] font-mono text-[#3a5070] uppercase mt-1">Mortos Confirmados</div>
+          <div className="text-[10px] text-[#b8cce0] mt-2 font-mono">~18.500 Feridos | 6.000 Alvos Destruídos</div>
+        </div>
+        <div className="bg-[#2979ff]/5 border border-[#2979ff]/20 p-4 text-center">
+          <div className="text-[9px] font-mono text-[#2979ff] uppercase tracking-widest mb-1">EUA / Israel</div>
+          <div className="text-3xl font-orbitron font-black text-[#2979ff]">28+</div>
+          <div className="text-[8px] font-mono text-[#3a5070] uppercase mt-1">Mortos Militares</div>
+          <div className="text-[10px] text-[#b8cce0] mt-2 font-mono">EUA: 13 | Israel: 15 | Golfo: 19</div>
+        </div>
+        <div className="bg-[#ffc600]/5 border border-[#ffc600]/20 p-4 text-center">
+          <div className="text-[9px] font-mono text-[#ffc600] uppercase tracking-widest mb-1">Impacto Global</div>
+          <div className="text-3xl font-orbitron font-black text-[#ffc600]">US$ 140+</div>
+          <div className="text-[8px] font-mono text-[#3a5070] uppercase mt-1">Preço Barril Petróleo</div>
+          <div className="text-[10px] text-[#b8cce0] mt-2 font-mono">Estreito de Hormuz sob Fogo</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-3">
+          <div className="text-[10px] font-orbitron font-bold text-[#e8f2ff] uppercase tracking-widest border-l-2 border-[#ff2233] pl-2">Onda de Ataques Iranianos (28 FEV 2026)</div>
+          <div className="text-[11px] text-[#b8cce0] leading-relaxed font-mono bg-[#04060d] p-3 border border-[#12203a]">
+            Retaliação direta a ataques em solo iraniano. Centenas de mísseis balísticos e drones lançados contra bases no Bahrein, Kuwait, Qatar e EAU. 
+            Apesar das interceptações, danos significativos foram reportados em Ali Al Salem (Kuwait) e Duqm (Omã).
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="text-[10px] font-orbitron font-bold text-[#e8f2ff] uppercase tracking-widest border-l-2 border-[#2979ff] pl-2">Status Operacional EUA</div>
+          <div className="text-[11px] text-[#b8cce0] leading-relaxed font-mono bg-[#04060d] p-3 border border-[#12203a]">
+            CENTCOM nega evacuação total, mas confirma "reposicionamento tático" de pessoal não essencial. Mídia estatal iraniana alega fuga em massa, 
+            enquanto operações aéreas a partir de Al Udeid continuam em ritmo máximo de combate.
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 pt-4 border-t border-[#12203a]">
+        <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-2">Fontes de Inteligência Citadas:</div>
+        <div className="flex flex-wrap gap-4">
+          <span className="text-[9px] font-mono text-[#3a5070]">· REUTERS (MAR 2026)</span>
+          <span className="text-[9px] font-mono text-[#3a5070]">· VISUAL CAPITALIST (MILITARY DATA)</span>
+          <span className="text-[9px] font-mono text-[#3a5070]">· COUNCIL ON FOREIGN RELATIONS (CFR)</span>
+          <span className="text-[9px] font-mono text-[#3a5070]">· CENTCOM OFFICIAL REPORTS</span>
+          <span className="text-[9px] font-mono text-[#3a5070]">· USA TODAY / AL JAZEERA</span>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 // --- Map Component ---
 const OpenInfraMap = () => {
   const [baseLayer, setBaseLayer] = useState<'satellite' | 'street'>('satellite');
-  const [activeLayers, setActiveLayers] = useState<string[]>(['conflict', 'military', 'power']);
+  const [activeLayers, setActiveLayers] = useState<string[]>(['conflict', 'military', 'power', 'military_base']);
   
   const satelliteLayer = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
   const streetLayer = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -794,12 +974,16 @@ const OpenInfraMap = () => {
   };
 
   const getIcon = (type: MapPoint['type'], status: MapPoint['status']) => {
-    const color = status === 'operational' ? '#00e676' : status === 'critical' ? '#ffc600' : '#ff2233';
+    let color = '#00e676';
+    if (type === 'military_base') color = '#2979ff';
+    else if (status === 'critical' || status === 'alert') color = '#ffc600';
+    else if (status === 'damaged' || status === 'active') color = '#ff2233';
+
     return L.divIcon({
       className: 'custom-div-icon',
-      html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px ${color};"></div>`,
-      iconSize: [12, 12],
-      iconAnchor: [6, 6]
+      html: `<div style="background-color: ${color}; width: ${type === 'military_base' ? '14px' : '12px'}; height: ${type === 'military_base' ? '14px' : '12px'}; border-radius: ${type === 'military_base' ? '2px' : '50%'}; border: 2px solid white; box-shadow: 0 0 10px ${color};"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
     });
   };
 
@@ -829,6 +1013,13 @@ const OpenInfraMap = () => {
 
         <div className="bg-[#080d1a]/90 border border-[#12203a] p-2 flex flex-col gap-1">
           <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1 px-1">Camadas</div>
+          <button 
+            onClick={() => toggleLayer('military_base')}
+            className={`p-2 border ${activeLayers.includes('military_base') ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
+            title="Bases EUA"
+          >
+            <Shield size={14} />
+          </button>
           <button 
             onClick={() => toggleLayer('power')}
             className={`p-2 border ${activeLayers.includes('power') ? 'bg-[#ffc600] border-[#ffc600] text-black' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
@@ -871,22 +1062,26 @@ const OpenInfraMap = () => {
         <div className="text-[10px] font-orbitron font-bold text-[#00cfff] mb-2 uppercase tracking-widest">Legenda de Infraestrutura</div>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#2979ff]" />
+            <span className="text-[9px] font-mono text-[#b8cce0] uppercase">Base Militar EUA</span>
+          </div>
+          <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#00e676]" />
             <span className="text-[9px] font-mono text-[#b8cce0] uppercase">Operacional / Estável</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#ffc600]" />
-            <span className="text-[9px] font-mono text-[#b8cce0] uppercase">Crítico / Degradado</span>
+            <span className="text-[9px] font-mono text-[#b8cce0] uppercase">Crítico / Alerta</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#ff2233]" />
-            <span className="text-[9px] font-mono text-[#b8cce0] uppercase">Destruído / Inativo</span>
+            <span className="text-[9px] font-mono text-[#b8cce0] uppercase">Destruído / Ativo</span>
           </div>
         </div>
       </div>
 
       <MapContainer 
-        center={[28.5, 54.5]} 
+        center={[25.5, 53.5]} 
         zoom={5} 
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
@@ -904,8 +1099,12 @@ const OpenInfraMap = () => {
             icon={getIcon(point.type, point.status)}
           >
             <Popup>
-              <div className="bg-[#080d1a] text-[#b8cce0] p-2 font-mono min-w-[150px]">
-                <div className="text-[10px] font-bold text-[#00cfff] uppercase mb-1 border-b border-[#12203a] pb-1">{point.name}</div>
+              <div className="bg-[#080d1a] text-[#b8cce0] p-2 font-mono min-w-[180px]">
+                <div className={`text-[10px] font-bold ${point.type === 'military_base' ? 'text-[#2979ff]' : 'text-[#00cfff]'} uppercase mb-1 border-b border-[#12203a] pb-1`}>{point.name}</div>
+                <div className="text-[8px] text-[#3a5070] uppercase mb-1">
+                  {point.country && `${point.country} | `}
+                  {point.personnel && `Efetivo: ${point.personnel}`}
+                </div>
                 <div className="text-[8px] text-[#3a5070] uppercase mb-2">Tipo: {point.type} | Status: {point.status}</div>
                 <div className="text-[9px] leading-tight">{point.description}</div>
               </div>
@@ -1069,12 +1268,18 @@ export default function App() {
                 MAPA TÁTICO · SATÉLITE OPENINFRA
               </h2>
               <div className="flex gap-2">
-                <span className="px-2 py-0.5 border border-[#00e676] text-[#00e676] text-[8px] font-mono uppercase">Infra: Ativa</span>
+                <span className="px-2 py-0.5 border border-[#2979ff] text-[#2979ff] text-[8px] font-mono uppercase">Bases EUA: Ativas</span>
                 <span className="px-2 py-0.5 border border-[#ff2233] text-[#ff2233] text-[8px] font-mono uppercase">Hormuz: Alerta</span>
               </div>
             </div>
             <OpenInfraMap />
           </section>
+
+          {/* US Military Dashboard */}
+          <USMilitaryDashboard />
+
+          {/* War Balance Sheet */}
+          <WarBalanceSheet />
 
           {/* Impact Technical Sheet */}
           <ImpactTechnicalSheet />
