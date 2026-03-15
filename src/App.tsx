@@ -20,7 +20,13 @@ import {
   Shield,
   Cpu,
   Globe2,
-  Key
+  Key,
+  Map as MapIcon,
+  Zap,
+  Wifi,
+  Droplets,
+  ShieldAlert,
+  Target
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -46,7 +52,7 @@ interface Message {
   sources?: { uri: string; title: string }[];
 }
 
-interface OpenClawConfig {
+interface OpenCLConfig {
   provider: 'claude' | 'deepseek' | 'qwen' | 'gpt' | 'singularity';
   apiKey: string;
   baseUrl: string;
@@ -117,9 +123,9 @@ const SCENARIOS: ForecastScenario[] = [
 
 // --- Components ---
 
-const OpenClawAgent = () => {
-  const [config, setConfig] = useState<OpenClawConfig>(() => {
-    const saved = localStorage.getItem('openclaw_config');
+const OpenCLAgent = () => {
+  const [config, setConfig] = useState<OpenCLConfig>(() => {
+    const saved = localStorage.getItem('opencl_config');
     return saved ? JSON.parse(saved) : {
       provider: 'claude',
       apiKey: '',
@@ -129,7 +135,7 @@ const OpenClawAgent = () => {
   });
 
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Agente OpenClaw Ativo. Configure seu provedor e chave API para iniciar a análise tática avançada.' }
+    { role: 'assistant', content: 'Agente OpenCL Ativo. Configure seu provedor (Claude, GPT, DeepSeek, Qwen, Singularity) e endpoint (Local, GCloud, Web API) para iniciar.' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -138,7 +144,7 @@ const OpenClawAgent = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    localStorage.setItem('openclaw_config', JSON.stringify(config));
+    localStorage.setItem('opencl_config', JSON.stringify(config));
   }, [config]);
 
   useEffect(() => {
@@ -151,7 +157,7 @@ const OpenClawAgent = () => {
     const { provider, apiKey, baseUrl, modelName } = config;
     
     if (!apiKey && provider !== 'singularity') {
-      throw new Error('API Key necessária para este provedor.');
+      throw new Error('Web API Key necessária para este provedor.');
     }
 
     let url = baseUrl;
@@ -176,7 +182,8 @@ const OpenClawAgent = () => {
         messages: [{ role: 'user', content: prompt }]
       };
     } else if (provider === 'singularity') {
-      body = { prompt };
+      // Custom implementation for Singularity/Local/GColab/GCOLB
+      body = { prompt, model: modelName };
     }
 
     const response = await fetch(url, {
@@ -194,7 +201,7 @@ const OpenClawAgent = () => {
     
     if (provider === 'claude') return data.content[0].text;
     if (provider === 'gpt' || provider === 'deepseek' || provider === 'qwen') return data.choices[0].message.content;
-    return data.response || data.text || JSON.stringify(data);
+    return data.response || data.text || data.output || JSON.stringify(data);
   };
 
   const handleSend = async () => {
@@ -213,7 +220,7 @@ const OpenClawAgent = () => {
       };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error: any) {
-      console.error('OpenClaw Error:', error);
+      console.error('OpenCL Error:', error);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: `Erro: ${error.message || 'Falha na comunicação com o provedor.'}` 
@@ -230,7 +237,7 @@ const OpenClawAgent = () => {
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <h2 className="font-orbitron text-[10px] font-bold text-[#00cfff] tracking-[3px] uppercase flex items-center gap-2">
-          <Shield size={14} /> OPENCLAW AGENT
+          <Shield size={14} /> OPENCL AGENT
         </h2>
         <div className="flex items-center gap-3">
           <button 
@@ -258,16 +265,16 @@ const OpenClawAgent = () => {
                 onChange={(e) => setConfig({ ...config, provider: e.target.value as any })}
                 className="w-full bg-[#080d1a] border border-[#12203a] px-2 py-1 text-[10px] text-[#e8f2ff] focus:outline-none"
               >
-                <option value="claude">Anthropic Claude</option>
+                <option value="claude">Anthropic Claude (Padrão)</option>
                 <option value="gpt">OpenAI GPT</option>
                 <option value="deepseek">DeepSeek</option>
                 <option value="qwen">Alibaba Qwen</option>
-                <option value="singularity">Singularity / Local / GColab</option>
+                <option value="singularity">Singularity / Local / GCOLB</option>
               </select>
             </div>
             
             <div className="space-y-1">
-              <label className="text-[8px] font-mono text-[#3a5070] uppercase">API Key</label>
+              <label className="text-[8px] font-mono text-[#3a5070] uppercase">Web API Key</label>
               <div className="relative">
                 <input 
                   type="password"
@@ -281,13 +288,13 @@ const OpenClawAgent = () => {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[8px] font-mono text-[#3a5070] uppercase">Base URL / Endpoint</label>
+              <label className="text-[8px] font-mono text-[#3a5070] uppercase">GCloud GCOLB / Local URL</label>
               <div className="relative">
                 <input 
                   type="text"
                   value={config.baseUrl}
                   onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
-                  placeholder="https://api..."
+                  placeholder="https://... or http://localhost:..."
                   className="w-full bg-[#080d1a] border border-[#12203a] pl-7 pr-2 py-1 text-[10px] text-[#e8f2ff] focus:outline-none"
                 />
                 <Globe2 size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#3a5070]" />
@@ -295,7 +302,7 @@ const OpenClawAgent = () => {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[8px] font-mono text-[#3a5070] uppercase">Model Name</label>
+              <label className="text-[8px] font-mono text-[#3a5070] uppercase">Model ID</label>
               <div className="relative">
                 <input 
                   type="text"
@@ -333,7 +340,7 @@ const OpenClawAgent = () => {
                     <div className="flex items-center gap-2 mb-1 opacity-50">
                       {msg.role === 'user' ? <User size={10} /> : <Shield size={10} />}
                       <span className="text-[8px] font-mono tracking-widest uppercase">
-                        {msg.role === 'user' ? 'Analista' : `OpenClaw (${config.provider})`}
+                        {msg.role === 'user' ? 'Analista' : `OpenCL (${config.provider})`}
                       </span>
                     </div>
                     <div className="text-[11px] leading-relaxed whitespace-pre-wrap">{msg.content}</div>
@@ -357,7 +364,7 @@ const OpenClawAgent = () => {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Comando OpenClaw..."
+                  placeholder="Comando OpenCL..."
                   className="flex-1 bg-[#080d1a] border border-[#12203a] px-3 py-2 text-[11px] text-[#e8f2ff] focus:outline-none focus:border-[#00cfff] transition-colors"
                 />
                 <button 
@@ -601,78 +608,339 @@ const ForecastCard: React.FC<{ scenario: ForecastScenario }> = ({ scenario }) =>
   </div>
 );
 
-// --- Map Component ---
-const OpenInfraMap = () => {
-  const [mapType, setMapType] = useState<'satellite' | 'infra'>('satellite');
-  
-  // OpenInfraMap layers or similar infrastructure tiles
-  const satelliteLayer = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-  const infraLayer = "https://tiles.openinframap.org/power/{z}/{x}/{y}.png"; 
+interface ImpactPoint {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  type: 'military' | 'infra' | 'civilian';
+  damage: {
+    material: string;
+    structural: string;
+    financial: string;
+    human: string;
+  };
+  intensity: number; // 0-1 for heatmap
+  timestamp: string;
+}
 
+interface MapPoint {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  type: 'power' | 'telecom' | 'water' | 'conflict' | 'military';
+  status: 'operational' | 'damaged' | 'critical' | 'active';
+  description: string;
+}
+
+const MAP_POINTS: MapPoint[] = [
+  // Power
+  { id: 'p1', name: 'Usina Nuclear de Bushehr', lat: 28.96, lng: 50.83, type: 'power', status: 'operational', description: 'Capacidade: 1000MW. Monitoramento AIEA ativo.' },
+  { id: 'p2', name: 'Barragem de Karun-3', lat: 31.81, lng: 50.15, type: 'power', status: 'operational', description: 'Hidroelétrica crítica. Nível do reservatório: 78%.' },
+  // Telecom
+  { id: 't1', name: 'Hub de Fibra de Teerã', lat: 35.68, lng: 51.38, type: 'telecom', status: 'critical', description: 'Ponto central de tráfego internacional. Latência elevada detectada.' },
+  { id: 't2', name: 'Estação Terrena de Jask', lat: 25.64, lng: 57.77, type: 'telecom', status: 'operational', description: 'Cabo submarino tático. Conexão com Omã.' },
+  // Water
+  { id: 'w1', name: 'Dessalinizadora de Bandar Abbas', lat: 27.18, lng: 56.26, type: 'water', status: 'damaged', description: 'Suprimento regional reduzido em 40% após impacto cinético.' },
+  // Conflict
+  { id: 'c1', name: 'Zona de Engajamento Hormuz', lat: 26.59, lng: 56.45, type: 'conflict', status: 'active', description: 'Troca de fogo entre lanchas rápidas e escoltas navais.' },
+  { id: 'c2', name: 'Fronteira Sistan-Baluchestan', lat: 29.49, lng: 60.86, type: 'conflict', status: 'active', description: 'Atividade insurgente intensificada. Bloqueio de estradas.' }
+];
+
+const IMPACT_POINTS: ImpactPoint[] = [
+  {
+    id: '1',
+    name: 'Base Aérea de Isfahan',
+    lat: 32.75,
+    lng: 51.85,
+    type: 'military',
+    damage: {
+      material: '3x Hangares destruídos, 2x Radares EW',
+      structural: 'Pista 08R inoperante',
+      financial: '$450M est.',
+      human: '12 KIA, 45 WIA'
+    },
+    intensity: 0.9,
+    timestamp: '2026-03-14T04:20:00Z'
+  },
+  {
+    id: '2',
+    name: 'Refinaria de Abadan',
+    lat: 30.34,
+    lng: 48.26,
+    type: 'infra',
+    damage: {
+      material: 'Unidade de Craqueamento Catalítico',
+      structural: 'Colapso de 4 tanques de armazenamento',
+      financial: '$1.2B est.',
+      human: '4 KIA, 18 WIA'
+    },
+    intensity: 0.85,
+    timestamp: '2026-03-14T06:15:00Z'
+  },
+  {
+    id: '3',
+    name: 'Porto de Bandar Abbas',
+    lat: 27.18,
+    lng: 56.26,
+    type: 'infra',
+    damage: {
+      material: '2x Guindastes de pórtico, 1x Fragata classe Alvand',
+      structural: 'Pier 4 severamente danificado',
+      financial: '$890M est.',
+      human: '22 KIA, 60 WIA'
+    },
+    intensity: 0.75,
+    timestamp: '2026-03-14T05:45:00Z'
+  },
+  {
+    id: '4',
+    name: 'Instalação de Natanz',
+    lat: 33.72,
+    lng: 51.72,
+    type: 'military',
+    damage: {
+      material: 'Sistemas de ventilação, Centrifugadoras IR-6',
+      structural: 'Danos superficiais em bunkers',
+      financial: '$2.1B est. (atraso programa)',
+      human: '0 KIA (evacuado)'
+    },
+    intensity: 0.95,
+    timestamp: '2026-03-14T03:10:00Z'
+  }
+];
+
+// --- Components ---
+
+const RadarOverlay = () => {
   return (
-    <div className="relative h-[400px] w-full border border-[#12203a] bg-[#04060d]">
-      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-        <button 
-          onClick={() => setMapType('satellite')}
-          className={`p-2 border ${mapType === 'satellite' ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-          title="Satélite"
-        >
-          <Globe size={16} />
-        </button>
-        <button 
-          onClick={() => setMapType('infra')}
-          className={`p-2 border ${mapType === 'infra' ? 'bg-[#ff6600] border-[#ff6600] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-          title="Infraestrutura (OpenInfra)"
-        >
-          <Layers size={16} />
-        </button>
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-[1001]">
+      <motion.div 
+        animate={{ rotate: 360 }}
+        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+        className="absolute top-1/2 left-1/2 w-[200%] h-[200%] -translate-x-1/2 -translate-y-1/2 origin-center"
+        style={{
+          background: 'conic-gradient(from 0deg, transparent 0%, rgba(0, 207, 255, 0.15) 10%, transparent 20%)'
+        }}
+      />
+      <div className="absolute inset-0 border-[0.5px] border-[#00cfff]/10 rounded-full scale-[0.25]" />
+      <div className="absolute inset-0 border-[0.5px] border-[#00cfff]/10 rounded-full scale-[0.5]" />
+      <div className="absolute inset-0 border-[0.5px] border-[#00cfff]/10 rounded-full scale-[0.75]" />
+    </div>
+  );
+};
+
+const ImpactTechnicalSheet = () => {
+  return (
+    <section className="bg-[#080d1a] border border-[#12203a] p-6 mt-6">
+      <div className="flex justify-between items-center mb-6 border-b border-[#12203a] pb-4">
+        <h2 className="font-orbitron text-xs font-bold text-[#ff2233] tracking-[3px] uppercase flex items-center gap-2">
+          <Shield size={14} /> FICHA TÉCNICA DE DANOS E IMPACTOS
+        </h2>
+        <span className="text-[9px] font-mono text-[#3a5070] uppercase tracking-widest">RELATÓRIO BDA · BATTLE DAMAGE ASSESSMENT</span>
       </div>
       
-      <div className="absolute bottom-4 left-4 z-[1000] bg-[#080d1a]/90 border border-[#12203a] p-3 max-w-[200px]">
-        <div className="text-[10px] font-orbitron font-bold text-[#ffc600] mb-1 tracking-widest uppercase">Status Regional</div>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-2 h-2 rounded-full bg-[#ff2233] animate-pulse" />
-          <span className="text-[9px] text-[#b8cce0]">Estreito de Hormuz: Bloqueio Parcial</span>
+      <div className="grid grid-cols-1 gap-4">
+        {IMPACT_POINTS.map((point) => (
+          <div key={point.id} className="border border-[#12203a] bg-[#04060d]/50 p-4 grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+            <div className="border-r border-[#12203a] pr-4">
+              <div className="text-[10px] font-orbitron font-bold text-[#e8f2ff] mb-1">{point.name}</div>
+              <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-2">{point.type} · {new Date(point.timestamp).toLocaleTimeString()}</div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1 bg-[#12203a]">
+                  <div className="h-full bg-[#ff2233]" style={{ width: `${point.intensity * 100}%` }} />
+                </div>
+                <span className="text-[9px] font-mono text-[#ff2233]">{Math.round(point.intensity * 100)}%</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1">Danos Materiais</div>
+                <div className="text-[10px] text-[#b8cce0] leading-tight">{point.damage.material}</div>
+              </div>
+              <div>
+                <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1">Estrutural</div>
+                <div className="text-[10px] text-[#b8cce0] leading-tight">{point.damage.structural}</div>
+              </div>
+              <div>
+                <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1">Financeiro</div>
+                <div className="text-[10px] text-[#ffc600] font-mono">{point.damage.financial}</div>
+              </div>
+              <div>
+                <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1">Humanos</div>
+                <div className="text-[10px] text-[#ff2233] font-bold">{point.damage.human}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+// --- Map Component ---
+const OpenInfraMap = () => {
+  const [baseLayer, setBaseLayer] = useState<'satellite' | 'street'>('satellite');
+  const [activeLayers, setActiveLayers] = useState<string[]>(['conflict', 'military', 'power']);
+  
+  const satelliteLayer = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+  const streetLayer = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+  const toggleLayer = (layer: string) => {
+    setActiveLayers(prev => 
+      prev.includes(layer) ? prev.filter(l => l !== layer) : [...prev, layer]
+    );
+  };
+
+  const getIcon = (type: MapPoint['type'], status: MapPoint['status']) => {
+    const color = status === 'operational' ? '#00e676' : status === 'critical' ? '#ffc600' : '#ff2233';
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px ${color};"></div>`,
+      iconSize: [12, 12],
+      iconAnchor: [6, 6]
+    });
+  };
+
+  return (
+    <div className="relative h-[600px] w-full border border-[#12203a] bg-[#04060d]">
+      <RadarOverlay />
+      
+      {/* Layer Controls */}
+      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+        <div className="bg-[#080d1a]/90 border border-[#12203a] p-2 flex flex-col gap-1">
+          <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1 px-1">Base</div>
+          <button 
+            onClick={() => setBaseLayer('satellite')}
+            className={`p-2 border ${baseLayer === 'satellite' ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
+            title="Satélite"
+          >
+            <Globe size={14} />
+          </button>
+          <button 
+            onClick={() => setBaseLayer('street')}
+            className={`p-2 border ${baseLayer === 'street' ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
+            title="Ruas"
+          >
+            <MapIcon size={14} />
+          </button>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#00e676]" />
-          <span className="text-[9px] text-[#b8cce0]">Infraestrutura Crítica: Operacional</span>
+
+        <div className="bg-[#080d1a]/90 border border-[#12203a] p-2 flex flex-col gap-1">
+          <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1 px-1">Camadas</div>
+          <button 
+            onClick={() => toggleLayer('power')}
+            className={`p-2 border ${activeLayers.includes('power') ? 'bg-[#ffc600] border-[#ffc600] text-black' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
+            title="Energia"
+          >
+            <Zap size={14} />
+          </button>
+          <button 
+            onClick={() => toggleLayer('telecom')}
+            className={`p-2 border ${activeLayers.includes('telecom') ? 'bg-[#00cfff] border-[#00cfff] text-black' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
+            title="Telecom"
+          >
+            <Wifi size={14} />
+          </button>
+          <button 
+            onClick={() => toggleLayer('water')}
+            className={`p-2 border ${activeLayers.includes('water') ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
+            title="Água"
+          >
+            <Droplets size={14} />
+          </button>
+          <button 
+            onClick={() => toggleLayer('conflict')}
+            className={`p-2 border ${activeLayers.includes('conflict') ? 'bg-[#ff2233] border-[#ff2233] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
+            title="Conflitos"
+          >
+            <ShieldAlert size={14} />
+          </button>
+          <button 
+            onClick={() => toggleLayer('military')}
+            className={`p-2 border ${activeLayers.includes('military') ? 'bg-[#aa44ff] border-[#aa44ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
+            title="Impactos BDA"
+          >
+            <Target size={14} />
+          </button>
+        </div>
+      </div>
+      
+      <div className="absolute bottom-4 left-4 z-[1000] bg-[#080d1a]/90 border border-[#12203a] p-3 max-w-[220px]">
+        <div className="text-[10px] font-orbitron font-bold text-[#00cfff] mb-2 uppercase tracking-widest">Legenda de Infraestrutura</div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#00e676]" />
+            <span className="text-[9px] font-mono text-[#b8cce0] uppercase">Operacional / Estável</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#ffc600]" />
+            <span className="text-[9px] font-mono text-[#b8cce0] uppercase">Crítico / Degradado</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#ff2233]" />
+            <span className="text-[9px] font-mono text-[#b8cce0] uppercase">Destruído / Inativo</span>
+          </div>
         </div>
       </div>
 
       <MapContainer 
-        center={[26.5, 55.5]} 
-        zoom={6} 
+        center={[28.5, 54.5]} 
+        zoom={5} 
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://www.esri.com/">Esri</a>'
-          url={mapType === 'satellite' ? satelliteLayer : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
+          attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+          url={baseLayer === 'satellite' ? satelliteLayer : streetLayer}
         />
-        {mapType === 'infra' && (
-          <TileLayer
-            attribution='&copy; <a href="https://openinframap.org">OpenInfraMap</a>'
-            url={infraLayer}
-            opacity={0.7}
-          />
-        )}
         
+        {/* Infrastructure & Conflict Markers */}
+        {MAP_POINTS.filter(p => activeLayers.includes(p.type)).map(point => (
+          <Marker 
+            key={point.id} 
+            position={[point.lat, point.lng]}
+            icon={getIcon(point.type, point.status)}
+          >
+            <Popup>
+              <div className="bg-[#080d1a] text-[#b8cce0] p-2 font-mono min-w-[150px]">
+                <div className="text-[10px] font-bold text-[#00cfff] uppercase mb-1 border-b border-[#12203a] pb-1">{point.name}</div>
+                <div className="text-[8px] text-[#3a5070] uppercase mb-2">Tipo: {point.type} | Status: {point.status}</div>
+                <div className="text-[9px] leading-tight">{point.description}</div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {/* Impact Points (Military BDA) */}
+        {activeLayers.includes('military') && IMPACT_POINTS.map(point => (
+          <Marker 
+            key={`impact-${point.id}`} 
+            position={[point.lat, point.lng]}
+            icon={getIcon('military', 'damaged')}
+          >
+            <Popup>
+              <div className="bg-[#080d1a] text-[#b8cce0] p-2 font-mono min-w-[200px]">
+                <div className="text-[10px] font-bold text-[#ff2233] uppercase mb-1 border-b border-[#12203a] pb-1">ALVO: {point.name}</div>
+                <div className="text-[8px] text-[#3a5070] uppercase mb-2">BDA REPORT · {new Date(point.timestamp).toLocaleDateString()}</div>
+                <div className="space-y-1">
+                  <div className="text-[9px]"><span className="text-[#3a5070]">MATERIAIS:</span> {point.damage.material}</div>
+                  <div className="text-[9px]"><span className="text-[#3a5070]">ESTRUTURAL:</span> {point.damage.structural}</div>
+                  <div className="text-[9px] font-bold text-[#ff2233] uppercase">BAIXAS: {point.damage.human}</div>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
         {/* Strategic Points */}
-        <Marker position={[26.59, 56.45]}>
+        <Marker position={[26.59, 56.45]} icon={getIcon('conflict', 'active')}>
           <Popup>
             <div className="text-xs font-mono">
               <strong>Estreito de Hormuz</strong><br/>
               Status: Alerta Máximo<br/>
               Tráfego: -65%
-            </div>
-          </Popup>
-        </Marker>
-        <Marker position={[28.96, 50.83]}>
-          <Popup>
-            <div className="text-xs font-mono">
-              <strong>Usina de Bushehr</strong><br/>
-              Status: Monitorado
             </div>
           </Popup>
         </Marker>
@@ -808,6 +1076,9 @@ export default function App() {
             <OpenInfraMap />
           </section>
 
+          {/* Impact Technical Sheet */}
+          <ImpactTechnicalSheet />
+
           {/* Forecast Scenarios */}
           <section className="bg-[#080d1a] border border-[#12203a] p-6">
             <div className="flex justify-between items-center mb-6 border-b border-[#12203a] pb-4">
@@ -825,8 +1096,8 @@ export default function App() {
 
         {/* Sidebar */}
         <aside className="border-l border-[#12203a] p-6 flex flex-col gap-6 overflow-y-auto bg-[#04060d]">
-          {/* OpenClaw Agent Integration */}
-          <OpenClawAgent />
+          {/* OpenCL Agent Integration */}
+          <OpenCLAgent />
 
           {/* Tutor Agent Integration */}
           <TutorAgent />
