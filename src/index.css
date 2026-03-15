@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --font-inter: "Inter", sans-serif;
+  --font-orbitron: "Orbitron", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&family=Inter:wght@300;400;600&display=swap');
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: #04060d;
+  color: #b8cce0;
+  font-family: var(--font-inter);
+}
+
+/* Custom Leaflet Styles to match dashboard */
+.leaflet-container {
+  background: #04060d !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #080d1a !important;
+  color: #b8cce0 !important;
+  border: 1px solid #12203a !important;
+  border-radius: 0 !important;
+}
+
+.leaflet-popup-tip {
+  background: #12203a !important;
+}

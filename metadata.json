@@ -1,0 +1,5 @@
+{
+  "name": "War Forecast Prophet",
+  "description": "Dashboard de previsão de conflitos com análise de dados e mapa de infraestrutura.",
+  "requestFramePermissions": ["geolocation"]
+}
