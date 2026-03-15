@@ -3,15 +3,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Globe, 
-  Layers
+  Layers,
+  MessageSquare,
+  Send,
+  Loader2,
+  ExternalLink,
+  User,
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  Settings,
+  Shield,
+  Cpu,
+  Globe2,
+  Key
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { GoogleGenAI } from "@google/genai";
 
 // Fix for default marker icons in Leaflet with React
 // @ts-ignore
@@ -22,7 +36,23 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// --- Gemini Setup ---
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
 // --- Types ---
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: { uri: string; title: string }[];
+}
+
+interface OpenClawConfig {
+  provider: 'claude' | 'deepseek' | 'qwen' | 'gpt' | 'singularity';
+  apiKey: string;
+  baseUrl: string;
+  modelName: string;
+}
+
 interface Dimension {
   name: string;
   us: number;
@@ -86,6 +116,415 @@ const SCENARIOS: ForecastScenario[] = [
 ];
 
 // --- Components ---
+
+const OpenClawAgent = () => {
+  const [config, setConfig] = useState<OpenClawConfig>(() => {
+    const saved = localStorage.getItem('openclaw_config');
+    return saved ? JSON.parse(saved) : {
+      provider: 'claude',
+      apiKey: '',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      modelName: 'claude-3-5-sonnet-20240620'
+    };
+  });
+
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: 'Agente OpenClaw Ativo. Configure seu provedor e chave API para iniciar a análise tática avançada.' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem('openclaw_config', JSON.stringify(config));
+  }, [config]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const callLLM = async (prompt: string) => {
+    const { provider, apiKey, baseUrl, modelName } = config;
+    
+    if (!apiKey && provider !== 'singularity') {
+      throw new Error('API Key necessária para este provedor.');
+    }
+
+    let url = baseUrl;
+    let headers: any = {
+      'Content-Type': 'application/json',
+    };
+    let body: any = {};
+
+    if (provider === 'claude') {
+      headers['x-api-key'] = apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+      headers['dangerously-allow-browser'] = 'true';
+      body = {
+        model: modelName,
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      };
+    } else if (provider === 'gpt' || provider === 'deepseek' || provider === 'qwen') {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      body = {
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }]
+      };
+    } else if (provider === 'singularity') {
+      body = { prompt };
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `Erro HTTP: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (provider === 'claude') return data.content[0].text;
+    if (provider === 'gpt' || provider === 'deepseek' || provider === 'qwen') return data.choices[0].message.content;
+    return data.response || data.text || JSON.stringify(data);
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const responseText = await callLLM(input);
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: responseText
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error: any) {
+      console.error('OpenClaw Error:', error);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `Erro: ${error.message || 'Falha na comunicação com o provedor.'}` 
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-[#080d1a] border border-[#12203a] flex flex-col mb-4">
+      <div 
+        className="px-4 py-3 border-b border-[#12203a] flex justify-between items-center cursor-pointer bg-[#12203a]/20"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <h2 className="font-orbitron text-[10px] font-bold text-[#00cfff] tracking-[3px] uppercase flex items-center gap-2">
+          <Shield size={14} /> OPENCLAW AGENT
+        </h2>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); }}
+            className="text-[#3a5070] hover:text-[#00cfff] transition-colors"
+          >
+            <Settings size={14} />
+          </button>
+          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="p-4 border-b border-[#12203a] bg-[#04060d] space-y-3"
+          >
+            <div className="space-y-1">
+              <label className="text-[8px] font-mono text-[#3a5070] uppercase">Provedor LLM</label>
+              <select 
+                value={config.provider}
+                onChange={(e) => setConfig({ ...config, provider: e.target.value as any })}
+                className="w-full bg-[#080d1a] border border-[#12203a] px-2 py-1 text-[10px] text-[#e8f2ff] focus:outline-none"
+              >
+                <option value="claude">Anthropic Claude</option>
+                <option value="gpt">OpenAI GPT</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="qwen">Alibaba Qwen</option>
+                <option value="singularity">Singularity / Local / GColab</option>
+              </select>
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-[8px] font-mono text-[#3a5070] uppercase">API Key</label>
+              <div className="relative">
+                <input 
+                  type="password"
+                  value={config.apiKey}
+                  onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                  placeholder="sk-..."
+                  className="w-full bg-[#080d1a] border border-[#12203a] pl-7 pr-2 py-1 text-[10px] text-[#e8f2ff] focus:outline-none"
+                />
+                <Key size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#3a5070]" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[8px] font-mono text-[#3a5070] uppercase">Base URL / Endpoint</label>
+              <div className="relative">
+                <input 
+                  type="text"
+                  value={config.baseUrl}
+                  onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
+                  placeholder="https://api..."
+                  className="w-full bg-[#080d1a] border border-[#12203a] pl-7 pr-2 py-1 text-[10px] text-[#e8f2ff] focus:outline-none"
+                />
+                <Globe2 size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#3a5070]" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[8px] font-mono text-[#3a5070] uppercase">Model Name</label>
+              <div className="relative">
+                <input 
+                  type="text"
+                  value={config.modelName}
+                  onChange={(e) => setConfig({ ...config, modelName: e.target.value })}
+                  placeholder="claude-3-..."
+                  className="w-full bg-[#080d1a] border border-[#12203a] pl-7 pr-2 py-1 text-[10px] text-[#e8f2ff] focus:outline-none"
+                />
+                <Cpu size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#3a5070]" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex flex-col h-[350px]"
+          >
+            <div 
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#12203a]"
+            >
+              {messages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] p-3 border ${
+                    msg.role === 'user' 
+                      ? 'bg-[#1a3a6e]/20 border-[#2979ff]/30 text-[#e8f2ff]' 
+                      : 'bg-[#04060d] border-[#12203a] text-[#b8cce0]'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1 opacity-50">
+                      {msg.role === 'user' ? <User size={10} /> : <Shield size={10} />}
+                      <span className="text-[8px] font-mono tracking-widest uppercase">
+                        {msg.role === 'user' ? 'Analista' : `OpenClaw (${config.provider})`}
+                      </span>
+                    </div>
+                    <div className="text-[11px] leading-relaxed whitespace-pre-wrap">{msg.content}</div>
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-[#04060d] border border-[#12203a] p-3 flex items-center gap-3">
+                    <Loader2 size={14} className="animate-spin text-[#00cfff]" />
+                    <span className="text-[10px] font-mono text-[#3a5070] animate-pulse uppercase">Processando via {config.provider}...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-3 border-t border-[#12203a] bg-[#04060d]">
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  placeholder="Comando OpenClaw..."
+                  className="flex-1 bg-[#080d1a] border border-[#12203a] px-3 py-2 text-[11px] text-[#e8f2ff] focus:outline-none focus:border-[#00cfff] transition-colors"
+                />
+                <button 
+                  onClick={handleSend}
+                  disabled={isLoading}
+                  className="bg-[#0a2a4a] hover:bg-[#00cfff] text-white p-2 transition-colors disabled:opacity-50"
+                >
+                  <Send size={16} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const TutorAgent = () => {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: 'Olá! Sou seu Agente Tutor de Inteligência. Posso buscar dados em tempo real sobre o conflito, geopolítica e mercados. O que você gostaria de saber?' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await genAI.models.generateContent({ 
+        model: "gemini-3-flash-preview",
+        contents: [{ role: 'user', parts: [{ text: input }] }],
+        config: {
+          systemInstruction: "Você é um Agente Tutor de Inteligência especializado em geopolítica, conflitos militares e mercados globais. Sua função é fornecer análises precisas e dados em tempo real usando a ferramenta de busca do Google. Seja conciso, profissional e use um tom de relatório de inteligência.",
+          tools: [{ googleSearch: {} }]
+        }
+      });
+
+      const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map(chunk => ({
+        uri: chunk.web?.uri || '',
+        title: chunk.web?.title || 'Fonte'
+      })).filter(s => s.uri) || [];
+
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: response.text || 'Desculpe, não consegui processar sua solicitação.',
+        sources
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Gemini Error:', error);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Erro ao conectar com o servidor de inteligência. Verifique sua conexão ou tente novamente mais tarde.' 
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-[#080d1a] border border-[#12203a] flex flex-col">
+      <div 
+        className="px-4 py-3 border-b border-[#12203a] flex justify-between items-center cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <h2 className="font-orbitron text-[10px] font-bold text-[#aa44ff] tracking-[3px] uppercase flex items-center gap-2">
+          <Bot size={14} /> AGENTE TUTOR REAL-TIME
+        </h2>
+        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </div>
+      
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex flex-col h-[400px]"
+          >
+            <div 
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#12203a]"
+            >
+              {messages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] p-3 border ${
+                    msg.role === 'user' 
+                      ? 'bg-[#1a3a6e]/20 border-[#2979ff]/30 text-[#e8f2ff]' 
+                      : 'bg-[#04060d] border-[#12203a] text-[#b8cce0]'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1 opacity-50">
+                      {msg.role === 'user' ? <User size={10} /> : <Bot size={10} />}
+                      <span className="text-[8px] font-mono tracking-widest uppercase">
+                        {msg.role === 'user' ? 'Analista' : 'Prophet Agent'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] leading-relaxed whitespace-pre-wrap">{msg.content}</div>
+                    
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-[#12203a] space-y-1">
+                        <div className="text-[8px] font-mono text-[#3a5070] uppercase">Fontes Grounding:</div>
+                        {msg.sources.slice(0, 3).map((source, si) => (
+                          <a 
+                            key={si} 
+                            href={source.uri} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-[9px] text-[#2979ff] hover:underline truncate"
+                          >
+                            <ExternalLink size={8} /> {source.title}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-[#04060d] border border-[#12203a] p-3 flex items-center gap-3">
+                    <Loader2 size={14} className="animate-spin text-[#aa44ff]" />
+                    <span className="text-[10px] font-mono text-[#3a5070] animate-pulse">BUSCANDO DADOS EM TEMPO REAL...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-3 border-t border-[#12203a] bg-[#04060d]">
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  placeholder="Consultar inteligência..."
+                  className="flex-1 bg-[#080d1a] border border-[#12203a] px-3 py-2 text-[11px] text-[#e8f2ff] focus:outline-none focus:border-[#2979ff] transition-colors"
+                />
+                <button 
+                  onClick={handleSend}
+                  disabled={isLoading}
+                  className="bg-[#1a3a6e] hover:bg-[#2979ff] text-white p-2 transition-colors disabled:opacity-50"
+                >
+                  <Send size={16} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const ScoreBar = ({ us, iran }: { us: number, iran: number }) => {
   const total = us + iran;
@@ -386,6 +825,12 @@ export default function App() {
 
         {/* Sidebar */}
         <aside className="border-l border-[#12203a] p-6 flex flex-col gap-6 overflow-y-auto bg-[#04060d]">
+          {/* OpenClaw Agent Integration */}
+          <OpenClawAgent />
+
+          {/* Tutor Agent Integration */}
+          <TutorAgent />
+
           <div>
             <div className="font-orbitron text-[9px] text-[#3a5070] tracking-[3px] border-b border-[#12203a] pb-2 mb-4 uppercase">
               Situation Actual · D+14
