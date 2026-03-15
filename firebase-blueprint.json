@@ -1,0 +1,22 @@
+{
+  "entities": {
+    "userSettings": {
+      "title": "User Settings",
+      "description": "Configuration for the Open Claw agents and LLM preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "llmModel": { "type": "string", "description": "Selected Gemini model" },
+        "agentPersonality": { "type": "string", "description": "Tone of the Open Claw agent" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid"]
+    }
+  },
+  "firestore": {
+    "settings/{userId}": {
+      "schema": "userSettings",
+      "description": "User-specific settings for the Prophet Engine agents."
+    }
+  }
+}

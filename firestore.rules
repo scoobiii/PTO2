@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: settings
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required) - Firebase Auth UID
+    //   - llmModel: string (optional) - Selected Gemini model
+    //   - agentPersonality: string (optional) - Tone of the Open Claw agent
+    //   - updatedAt: timestamp (optional) - Last update time
+    //
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /settings/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

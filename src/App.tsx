@@ -26,12 +26,95 @@ import {
   Wifi,
   Droplets,
   ShieldAlert,
-  Target
+  Target,
+  LogOut,
+  Menu,
+  X,
+  Smartphone,
+  Plus,
+  Minus,
+  RotateCcw
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { GoogleGenAI } from "@google/genai";
+import { 
+  auth, 
+  db, 
+  googleProvider, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  serverTimestamp 
+} from './firebase';
+import { getDocFromServer } from 'firebase/firestore';
+
+// --- Firestore Error Handling ---
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if(error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration. ");
+    }
+  }
+}
+testConnection();
 
 // Fix for default marker icons in Leaflet with React
 // @ts-ignore
@@ -157,7 +240,7 @@ const OpenCLAgent = () => {
     const { provider, apiKey, baseUrl, modelName } = config;
     
     if (!apiKey && provider !== 'singularity') {
-      throw new Error('Web API Key necessária para este provedor.');
+      throw new Error('Web API Key necessária para este provedor. Por favor, configure-a no menu de configurações (ícone de engrenagem).');
     }
 
     let url = baseUrl;
@@ -182,19 +265,25 @@ const OpenCLAgent = () => {
         messages: [{ role: 'user', content: prompt }]
       };
     } else if (provider === 'singularity') {
-      // Custom implementation for Singularity/Local/GColab/GCOLB
       body = { prompt, model: modelName };
     }
 
-    const response = await fetch(url, {
+    // Use server-side proxy to avoid CORS and keep keys secure
+    const response = await fetch('/api/proxy', {
       method: 'POST',
-      headers,
-      body: JSON.stringify(body)
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        url,
+        headers,
+        body
+      })
     });
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error?.message || `Erro HTTP: ${response.status}`);
+      throw new Error(errData.error?.message || `Erro HTTP: ${response.status}. Verifique sua chave e conexão.`);
     }
 
     const data = await response.json();
@@ -789,6 +878,51 @@ const IMPACT_POINTS: ImpactPoint[] = [
     },
     intensity: 0.7,
     timestamp: '2026-03-14T07:30:00Z'
+  },
+  {
+    id: 'israel-1',
+    name: 'Porto de Haifa',
+    lat: 32.81,
+    lng: 34.99,
+    type: 'infra',
+    damage: {
+      material: 'Terminal de Contêineres, 2x Navios Mercantes',
+      structural: 'Danos severos em quebra-mares e guindastes',
+      financial: '$1.5B est.',
+      human: '14 KIA, 85 WIA'
+    },
+    intensity: 0.88,
+    timestamp: '2026-03-14T22:00:00Z'
+  },
+  {
+    id: 'israel-2',
+    name: 'Base Aérea de Nevatim',
+    lat: 31.20,
+    lng: 35.01,
+    type: 'military',
+    damage: {
+      material: '2x F-35I Adir (danos em solo), Depósito de Munição',
+      structural: 'Pista principal com crateras de impacto',
+      financial: '$650M est.',
+      human: '8 KIA, 22 WIA'
+    },
+    intensity: 0.92,
+    timestamp: '2026-03-14T23:15:00Z'
+  },
+  {
+    id: 'israel-3',
+    name: 'Complexo de Defesa (Tel Aviv)',
+    lat: 32.07,
+    lng: 34.78,
+    type: 'military',
+    damage: {
+      material: 'Sistemas de Comando e Controle',
+      structural: 'Danos em fachadas de arranha-céus adjacentes',
+      financial: '$400M est.',
+      human: '5 KIA, 120 WIA (Civis e Militares)'
+    },
+    intensity: 0.8,
+    timestamp: '2026-03-15T01:00:00Z'
   }
 ];
 
@@ -1212,9 +1346,9 @@ const WarBalanceSheet = () => {
         </div>
         <div className="bg-[#2979ff]/5 border border-[#2979ff]/20 p-4 text-center">
           <div className="text-[9px] font-mono text-[#2979ff] uppercase tracking-widest mb-1">EUA / Israel</div>
-          <div className="text-3xl font-orbitron font-black text-[#2979ff]">28+</div>
+          <div className="text-3xl font-orbitron font-black text-[#2979ff]">147+</div>
           <div className="text-[8px] font-mono text-[#3a5070] uppercase mt-1">Mortos Militares</div>
-          <div className="text-[10px] text-[#b8cce0] mt-2 font-mono">EUA: 13 | Israel: 15 | Golfo: 19</div>
+          <div className="text-[10px] text-[#b8cce0] mt-2 font-mono">EUA: 13 | Israel: 115 | Golfo: 19</div>
         </div>
         <div className="bg-[#ffc600]/5 border border-[#ffc600]/20 p-4 text-center">
           <div className="text-[9px] font-mono text-[#ffc600] uppercase tracking-widest mb-1">Impacto Global</div>
@@ -1255,11 +1389,47 @@ const WarBalanceSheet = () => {
   );
 };
 
+// --- Map Controls Component ---
+const MapControls = ({ center, zoom }: { center: [number, number], zoom: number }) => {
+  const map = useMap();
+  return (
+    <div className="leaflet-top leaflet-left !top-4 !left-4 z-[1000] flex flex-col gap-2 pointer-events-auto">
+      <div className="bg-[#080d1a]/90 border border-[#12203a] p-2 flex flex-col gap-1 shadow-lg">
+        <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1 px-1">Navegação</div>
+        <button 
+          onClick={() => map.zoomIn()}
+          className="p-2 border bg-[#080d1a] border-[#12203a] text-[#3a5070] hover:text-[#e8f2ff] transition-all"
+          title="Zoom In"
+        >
+          <Plus size={14} />
+        </button>
+        <button 
+          onClick={() => map.zoomOut()}
+          className="p-2 border bg-[#080d1a] border-[#12203a] text-[#3a5070] hover:text-[#e8f2ff] transition-all"
+          title="Zoom Out"
+        >
+          <Minus size={14} />
+        </button>
+        <button 
+          onClick={() => map.setView(center, zoom)}
+          className="p-2 border bg-[#080d1a] border-[#12203a] text-[#3a5070] hover:text-[#e8f2ff] transition-all"
+          title="Reset View"
+        >
+          <RotateCcw size={14} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // --- Map Component ---
 const OpenInfraMap = ({ currentDay }: { currentDay: number }) => {
   const [baseLayer, setBaseLayer] = useState<'satellite' | 'street'>('satellite');
   const [activeLayers, setActiveLayers] = useState<string[]>(['conflict', 'military', 'power', 'military_base']);
   
+  const mapCenter: [number, number] = [25.5, 53.5];
+  const defaultZoom = 5;
+
   const satelliteLayer = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
   const streetLayer = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
@@ -1267,6 +1437,16 @@ const OpenInfraMap = ({ currentDay }: { currentDay: number }) => {
     setActiveLayers(prev => 
       prev.includes(layer) ? prev.filter(l => l !== layer) : [...prev, layer]
     );
+  };
+
+  const toggleInfra = () => {
+    const infra = ['power', 'telecom', 'water'];
+    const allActive = infra.every(l => activeLayers.includes(l));
+    if (allActive) {
+      setActiveLayers(prev => prev.filter(l => !infra.includes(l)));
+    } else {
+      setActiveLayers(prev => [...new Set([...prev, ...infra])]);
+    }
   };
 
   const getIcon = (type: MapPoint['type'], status: MapPoint['status']) => {
@@ -1302,67 +1482,84 @@ const OpenInfraMap = ({ currentDay }: { currentDay: number }) => {
       
       {/* Layer Controls */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-        <div className="bg-[#080d1a]/90 border border-[#12203a] p-2 flex flex-col gap-1">
-          <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1 px-1">Base</div>
-          <button 
-            onClick={() => setBaseLayer('satellite')}
-            className={`p-2 border ${baseLayer === 'satellite' ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-            title="Satélite"
-          >
-            <Globe size={14} />
-          </button>
-          <button 
-            onClick={() => setBaseLayer('street')}
-            className={`p-2 border ${baseLayer === 'street' ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-            title="Ruas"
-          >
-            <MapIcon size={14} />
-          </button>
+        <div className="bg-[#080d1a]/90 border border-[#12203a] p-2 flex flex-col gap-1 shadow-lg">
+          <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1 px-1">Base Map</div>
+          <div className="flex gap-1">
+            <button 
+              onClick={() => setBaseLayer('satellite')}
+              className={`flex-1 p-2 border flex flex-col items-center gap-1 transition-all ${baseLayer === 'satellite' ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'}`}
+              title="Satélite"
+            >
+              <Globe size={14} />
+              <span className="text-[6px] font-mono uppercase">Sat</span>
+            </button>
+            <button 
+              onClick={() => setBaseLayer('street')}
+              className={`flex-1 p-2 border flex flex-col items-center gap-1 transition-all ${baseLayer === 'street' ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'}`}
+              title="Ruas"
+            >
+              <MapIcon size={14} />
+              <span className="text-[6px] font-mono uppercase">Map</span>
+            </button>
+          </div>
         </div>
 
-        <div className="bg-[#080d1a]/90 border border-[#12203a] p-2 flex flex-col gap-1">
-          <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1 px-1">Camadas</div>
+        <div className="bg-[#080d1a]/90 border border-[#12203a] p-2 flex flex-col gap-1 shadow-lg">
+          <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-1 px-1">Filtros Táticos</div>
+          
           <button 
             onClick={() => toggleLayer('military_base')}
-            className={`p-2 border ${activeLayers.includes('military_base') ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-            title="Bases EUA"
+            className={`flex items-center gap-2 p-2 border text-[9px] font-mono uppercase transition-all ${activeLayers.includes('military_base') ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'}`}
           >
-            <Shield size={14} />
+            <Shield size={12} /> Bases EUA
           </button>
-          <button 
-            onClick={() => toggleLayer('power')}
-            className={`p-2 border ${activeLayers.includes('power') ? 'bg-[#ffc600] border-[#ffc600] text-black' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-            title="Energia"
-          >
-            <Zap size={14} />
-          </button>
-          <button 
-            onClick={() => toggleLayer('telecom')}
-            className={`p-2 border ${activeLayers.includes('telecom') ? 'bg-[#00cfff] border-[#00cfff] text-black' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-            title="Telecom"
-          >
-            <Wifi size={14} />
-          </button>
-          <button 
-            onClick={() => toggleLayer('water')}
-            className={`p-2 border ${activeLayers.includes('water') ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-            title="Água"
-          >
-            <Droplets size={14} />
-          </button>
+
           <button 
             onClick={() => toggleLayer('conflict')}
-            className={`p-2 border ${activeLayers.includes('conflict') ? 'bg-[#ff2233] border-[#ff2233] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-            title="Conflitos"
+            className={`flex items-center gap-2 p-2 border text-[9px] font-mono uppercase transition-all ${activeLayers.includes('conflict') ? 'bg-[#ff2233] border-[#ff2233] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'}`}
           >
-            <ShieldAlert size={14} />
+            <ShieldAlert size={12} /> Conflitos
           </button>
+
+          <button 
+            onClick={toggleInfra}
+            className={`flex items-center gap-2 p-2 border text-[9px] font-mono uppercase transition-all ${['power', 'telecom', 'water'].every(l => activeLayers.includes(l)) ? 'bg-[#ffc600] border-[#ffc600] text-black' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'}`}
+          >
+            <Zap size={12} /> Infraestrutura
+          </button>
+
+          <div className="border-t border-[#12203a] my-1 pt-1">
+            <div className="text-[7px] font-mono text-[#3a5070] uppercase mb-1 px-1">Infra Detalhada</div>
+            <div className="grid grid-cols-3 gap-1 px-1">
+              <button 
+                onClick={() => toggleLayer('power')}
+                className={`p-1.5 border flex flex-col items-center gap-1 transition-all ${activeLayers.includes('power') ? 'bg-[#ffc600] border-[#ffc600] text-black' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'}`}
+                title="Energia"
+              >
+                <Zap size={10} />
+              </button>
+              <button 
+                onClick={() => toggleLayer('telecom')}
+                className={`p-1.5 border flex flex-col items-center gap-1 transition-all ${activeLayers.includes('telecom') ? 'bg-[#00cfff] border-[#00cfff] text-black' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'}`}
+                title="Telecom"
+              >
+                <Wifi size={10} />
+              </button>
+              <button 
+                onClick={() => toggleLayer('water')}
+                className={`p-1.5 border flex flex-col items-center gap-1 transition-all ${activeLayers.includes('water') ? 'bg-[#2979ff] border-[#2979ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'}`}
+                title="Água"
+              >
+                <Droplets size={10} />
+              </button>
+            </div>
+          </div>
+
           <button 
             onClick={() => toggleLayer('military')}
-            className={`p-2 border ${activeLayers.includes('military') ? 'bg-[#aa44ff] border-[#aa44ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'} transition-all`}
-            title="Impactos BDA"
+            className={`flex items-center gap-2 p-2 border text-[9px] font-mono uppercase transition-all ${activeLayers.includes('military') ? 'bg-[#aa44ff] border-[#aa44ff] text-white' : 'bg-[#080d1a] border-[#12203a] text-[#3a5070]'}`}
           >
-            <Target size={14} />
+            <Target size={12} /> Impactos BDA
           </button>
         </div>
       </div>
@@ -1390,11 +1587,13 @@ const OpenInfraMap = ({ currentDay }: { currentDay: number }) => {
       </div>
 
       <MapContainer 
-        center={[25.5, 53.5]} 
-        zoom={5} 
+        center={mapCenter} 
+        zoom={defaultZoom} 
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
       >
+        <MapControls center={mapCenter} zoom={defaultZoom} />
+        <ZoomControl position="bottomright" />
         <TileLayer
           attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
           url={baseLayer === 'satellite' ? satelliteLayer : streetLayer}
@@ -1463,6 +1662,65 @@ export default function App() {
   const [currentDay, setCurrentDay] = useState(14);
   const [usScore, setUsScore] = useState(0);
   const [iranScore, setIranScore] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [userSettings, setUserSettings] = useState<any>({
+    llmModel: 'gemini-3-flash-preview',
+    agentPersonality: 'Tactical'
+  });
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const docRef = doc(db, 'settings', currentUser.uid);
+        try {
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setUserSettings(docSnap.data());
+          } else {
+            await setDoc(docRef, {
+              uid: currentUser.uid,
+              llmModel: 'gemini-3-flash-preview',
+              agentPersonality: 'Tactical',
+              updatedAt: serverTimestamp()
+            });
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, `settings/${currentUser.uid}`);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Login failed", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
+
+  const updateSettings = async (newSettings: any) => {
+    const updated = { ...userSettings, ...newSettings };
+    setUserSettings(updated);
+    if (user) {
+      try {
+        await setDoc(doc(db, 'settings', user.uid), {
+          ...updated,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `settings/${user.uid}`);
+      }
+    }
+  };
 
   const currentTimeline = useMemo(() => {
     // Find the closest day in timeline that is <= currentDay
@@ -1480,26 +1738,32 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#04060d] text-[#b8cce0] font-inter selection:bg-[#2979ff]/30">
       {/* Header */}
-      <header className="px-6 py-3 border-b border-[#12203a] flex items-center justify-between bg-[#080d1a] sticky top-0 z-[2000] backdrop-blur-md bg-opacity-90">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-[#ff2233]/10 border border-[#ff2233]/30 rounded-lg flex items-center justify-center">
-            <Shield className="text-[#ff2233]" size={20} />
+      <header className="px-4 md:px-6 py-3 border-b border-[#12203a] flex items-center justify-between bg-[#080d1a] sticky top-0 z-[2000] backdrop-blur-md bg-opacity-90">
+        <div className="flex items-center gap-2 md:gap-4">
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="lg:hidden p-2 text-[#3a5070]"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-[#ff2233]/10 border border-[#ff2233]/30 rounded-lg flex items-center justify-center">
+            <Shield className="text-[#ff2233]" size={18} />
           </div>
           <div>
-            <h1 className="font-orbitron text-lg font-black text-[#e8f2ff] tracking-[4px] uppercase leading-none">
-              PROPHET ENGINE <span className="text-[#ff2233] text-xs ml-1">v2.4</span>
+            <h1 className="font-orbitron text-sm md:text-lg font-black text-[#e8f2ff] tracking-[2px] md:tracking-[4px] uppercase leading-none">
+              PROPHET <span className="hidden sm:inline">ENGINE</span> <span className="text-[#ff2233] text-[8px] md:text-xs ml-1">v2.4</span>
             </h1>
             <div className="flex items-center gap-2 mt-1">
-              <div className="w-2 h-2 rounded-full bg-[#00e676] animate-pulse" />
-              <p className="font-mono text-[8px] text-[#3a5070] tracking-[2px] uppercase">
-                SITREP: ACTIVE CONFLICT · GULF THEATER · D+{currentDay}
+              <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-[#00e676] animate-pulse" />
+              <p className="font-mono text-[6px] md:text-[8px] text-[#3a5070] tracking-[1px] md:tracking-[2px] uppercase">
+                SITREP: D+{currentDay}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 max-w-md mx-8">
-          <div className="flex flex-col gap-1">
+        <div className="hidden lg:flex flex-1 max-w-md mx-8">
+          <div className="flex flex-col gap-1 w-full">
             <div className="flex justify-between items-center px-1">
               <span className="text-[7px] font-mono text-[#3a5070] uppercase tracking-widest">Temporal Vector Control</span>
               <span className="text-[9px] font-mono text-[#00cfff] font-bold">15 MAR 2026</span>
@@ -1520,42 +1784,145 @@ export default function App() {
               >
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-2 border-[#00cfff] rounded-full shadow-[0_0_10px_#00cfff]" />
               </div>
-              <div className="absolute inset-0 flex justify-between px-2 pointer-events-none">
-                {[1, 4, 8, 12, 15].map(d => (
-                  <div key={d} className="flex flex-col items-center justify-center">
-                    <div className="w-0.5 h-1 bg-[#3a5070]" />
-                    <span className="text-[6px] font-mono text-[#3a5070] mt-0.5">{d}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-4 items-center">
-          <div className="hidden xl:flex flex-col items-end border-r border-[#12203a] pr-4">
-            <span className="text-[7px] font-mono text-[#3a5070] uppercase">System Load</span>
-            <div className="flex gap-0.5 mt-1">
-              {[1,2,3,4,5,6,7,8].map(i => (
-                <div key={i} className={`w-1 h-2 ${i < 6 ? 'bg-[#00e676]' : 'bg-[#12203a]'}`} />
-              ))}
+        <div className="flex gap-2 md:gap-4 items-center">
+          {user ? (
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-[8px] font-mono text-[#e8f2ff]">{user.displayName}</span>
+                <span className="text-[7px] font-mono text-[#00e676] uppercase">Authorized</span>
+              </div>
+              <img src={user.photoURL} alt="Avatar" className="w-7 h-7 md:w-8 md:h-8 rounded-full border border-[#2979ff]" />
+              <button onClick={handleLogout} className="p-1.5 text-[#3a5070] hover:text-[#ff2233] transition-colors">
+                <LogOut size={16} />
+              </button>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <button className="p-2 border border-[#12203a] hover:bg-[#12203a] transition-colors text-[#3a5070] hover:text-[#e8f2ff]">
-              <Settings size={16} />
+          ) : (
+            <button 
+              onClick={handleLogin}
+              className="px-3 py-1.5 bg-[#2979ff]/10 border border-[#2979ff]/30 text-[#2979ff] text-[9px] font-orbitron font-bold uppercase hover:bg-[#2979ff] hover:text-white transition-all"
+            >
+              Auth Access
             </button>
-            <div className="px-4 py-1.5 bg-[#ff2233] text-black text-[10px] font-orbitron font-black tracking-widest uppercase flex items-center gap-2">
-              <div className="w-2 h-2 bg-black rounded-full animate-ping" />
-              Live Combat
-            </div>
-          </div>
+          )}
+          <button 
+            onClick={() => setIsConfigOpen(true)}
+            className="p-2 border border-[#12203a] hover:bg-[#12203a] transition-colors text-[#3a5070] hover:text-[#e8f2ff]"
+          >
+            <Settings size={16} />
+          </button>
         </div>
       </header>
 
-      <main className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-0 min-h-[calc(100vh-70px)]">
+      <main className="flex-1 flex overflow-hidden relative">
+        {/* Sidebar Overlay for Mobile */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 bg-black/80 z-[3000] lg:hidden"
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Sidebar */}
+        <aside className={`
+          fixed inset-y-0 left-0 w-72 bg-[#04060d] z-[3100] border-r border-[#12203a] flex flex-col overflow-y-auto divide-y divide-[#12203a]
+          transition-transform duration-300 lg:relative lg:translate-x-0 lg:flex
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+          <div className="p-4 lg:hidden flex justify-between items-center border-b border-[#12203a]">
+            <span className="font-orbitron text-[10px] text-[#e8f2ff] tracking-widest">COMMAND SIDEBAR</span>
+            <button onClick={() => setIsSidebarOpen(false)} className="text-[#3a5070]"><X size={20} /></button>
+          </div>
+
+          {/* OpenCL Agent Integration */}
+          <div className="p-6">
+            <OpenCLAgent />
+          </div>
+
+          {/* Tutor Agent Integration */}
+          <div className="p-6">
+            <TutorAgent />
+          </div>
+
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="font-orbitron text-[9px] text-[#3a5070] tracking-[3px] uppercase">
+                Situation Actual
+              </div>
+              <div className="text-[8px] font-mono text-[#ff2233] animate-pulse">D+{currentDay}</div>
+            </div>
+            <div className="space-y-1">
+              {[
+                { label: 'Vantagem US+IL', val: '+18 pts', color: 'text-[#00e676]' },
+                { label: 'Hormuz Status', val: 'RESTRITO', color: 'text-[#ff2233]' },
+                { label: 'Oil Preço', val: '$112/bbl', color: 'text-[#ff2233]' },
+                { label: 'Negociações', val: 'TRAVADAS', color: 'text-[#ff2233]' },
+                { label: 'Trump Prazo', val: '4 SEM. → D+28', color: 'text-[#ffc600]' },
+                { label: 'Regime Iraniano', val: 'RESILIENTE', color: 'text-[#ff2233]' },
+              ].map(m => (
+                <div key={m.label} className="flex justify-between items-center py-2 px-3 bg-[#080d1a] border border-[#12203a]/30 hover:border-[#2979ff]/30 transition-colors group">
+                  <span className="text-[9px] text-[#3a5070] uppercase font-mono group-hover:text-[#b8cce0] transition-colors">{m.label}</span>
+                  <span className={`text-[10px] font-mono font-bold ${m.color}`}>{m.val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="font-orbitron text-[9px] text-[#3a5070] tracking-[3px] mb-4 uppercase">
+              Eventos Disruptivos
+            </div>
+            <div className="space-y-3">
+              {[
+                { prob: '65%', color: 'border-[#ff2233] text-[#ff2233] bg-[#ff2233]/5', text: 'Israel intensifica ofensiva em Gaza e Líbano → Escalada Regional' },
+                { prob: '12%', color: 'border-[#ff2233] text-[#ff2233] bg-[#ff2233]/5', text: 'Irã activa dispositivo nuclear tático → Resposta US' },
+                { prob: '15%', color: 'border-[#ff6600] text-[#ff6600] bg-[#ff6600]/5', text: 'China bloqueia Taiwan simultaneamente → Duas frentes' },
+                { prob: '20%', color: 'border-[#00cfff] text-[#00cfff] bg-[#00cfff]/5', text: 'Qatar/Omã mediam ceasefire antes D+28' },
+              ].map(w => (
+                <div key={w.text} className={`p-3 border-l-4 ${w.color} border border-opacity-20 hover:bg-white/5 transition-colors cursor-help`}>
+                  <div className="text-[9px] font-mono tracking-widest uppercase mb-1">🔴 PROB {w.prob}</div>
+                  <div className="text-[10px] leading-tight font-medium">{w.text}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-6 mt-auto">
+            <div className="bg-[#080d1a] border border-[#12203a] p-4 rounded-lg relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-[#2979ff] to-transparent opacity-50" />
+              <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-2 flex justify-between">
+                <span>Network Security</span>
+                <span className="text-[#00e676]">94%</span>
+              </div>
+              <div className="h-1 bg-[#12203a] rounded-full overflow-hidden mb-4">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: '94%' }}
+                  className="h-full bg-[#00e676]" 
+                />
+              </div>
+              <button className="w-full py-2 bg-[#12203a] hover:bg-[#2979ff] text-[#e8f2ff] text-[9px] font-mono uppercase transition-all duration-300 group-hover:tracking-[2px]">
+                Refresh Intel
+              </button>
+            </div>
+            <div className="mt-4 font-mono text-[7px] text-[#3a5070] leading-relaxed opacity-50">
+              ⚙ MODELO: Prophet-JS v2.4<br/>
+              y(t) = trend(t) + seasonality(t) + events(t) + ε<br/>
+              Intervalo conf: 80% · Monte Carlo: 10k
+            </div>
+          </div>
+        </aside>
+
         {/* Main Column */}
-        <div className="p-6 flex flex-col gap-6 overflow-y-auto">
+        <div className="flex-1 p-4 md:p-6 flex flex-col gap-6 overflow-y-auto">
           
           {/* Main Score Panel */}
           <section className="bg-[#080d1a] border border-[#12203a] p-6">
@@ -1673,86 +2040,92 @@ export default function App() {
           </section>
         </div>
 
-        {/* Sidebar */}
-        <aside className="border-l border-[#12203a] flex flex-col overflow-y-auto bg-[#04060d] divide-y divide-[#12203a]">
-          {/* OpenCL Agent Integration */}
-          <div className="p-6">
-            <OpenCLAgent />
-          </div>
-
-          {/* Tutor Agent Integration */}
-          <div className="p-6">
-            <TutorAgent />
-          </div>
-
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="font-orbitron text-[9px] text-[#3a5070] tracking-[3px] uppercase">
-                Situation Actual
-              </div>
-              <div className="text-[8px] font-mono text-[#ff2233] animate-pulse">D+{currentDay}</div>
-            </div>
-            <div className="space-y-1">
-              {[
-                { label: 'Vantagem US+IL', val: '+22 pts', color: 'text-[#00e676]' },
-                { label: 'Hormuz Status', val: 'RESTRITO', color: 'text-[#ff2233]' },
-                { label: 'Oil Preço', val: '$106/bbl', color: 'text-[#ff2233]' },
-                { label: 'Negociações', val: 'TRAVADAS', color: 'text-[#ff2233]' },
-                { label: 'Trump Prazo', val: '4 SEM. → D+28', color: 'text-[#ffc600]' },
-                { label: 'Regime Iraniano', val: 'VACILANTE', color: 'text-[#ff2233]' },
-              ].map(m => (
-                <div key={m.label} className="flex justify-between items-center py-2 px-3 bg-[#080d1a] border border-[#12203a]/30 hover:border-[#2979ff]/30 transition-colors group">
-                  <span className="text-[9px] text-[#3a5070] uppercase font-mono group-hover:text-[#b8cce0] transition-colors">{m.label}</span>
-                  <span className={`text-[10px] font-mono font-bold ${m.color}`}>{m.val}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="font-orbitron text-[9px] text-[#3a5070] tracking-[3px] mb-4 uppercase">
-              Eventos Disruptivos
-            </div>
-            <div className="space-y-3">
-              {[
-                { prob: '8%', color: 'border-[#ff2233] text-[#ff2233] bg-[#ff2233]/5', text: 'Irã activa dispositivo nuclear tático → Resposta US' },
-                { prob: '15%', color: 'border-[#ff6600] text-[#ff6600] bg-[#ff6600]/5', text: 'China bloqueia Taiwan simultaneamente → Duas frentes' },
-                { prob: '30%', color: 'border-[#00cfff] text-[#00cfff] bg-[#00cfff]/5', text: 'Qatar/Omã mediam ceasefire antes D+28' },
-              ].map(w => (
-                <div key={w.text} className={`p-3 border-l-4 ${w.color} border border-opacity-20 hover:bg-white/5 transition-colors cursor-help`}>
-                  <div className="text-[9px] font-mono tracking-widest uppercase mb-1">🔴 PROB {w.prob}</div>
-                  <div className="text-[10px] leading-tight font-medium">{w.text}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-6 mt-auto">
-            <div className="bg-[#080d1a] border border-[#12203a] p-4 rounded-lg relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-[#2979ff] to-transparent opacity-50" />
-              <div className="text-[8px] font-mono text-[#3a5070] uppercase mb-2 flex justify-between">
-                <span>Network Security</span>
-                <span className="text-[#00e676]">94%</span>
-              </div>
-              <div className="h-1 bg-[#12203a] rounded-full overflow-hidden mb-4">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: '94%' }}
-                  className="h-full bg-[#00e676]" 
-                />
-              </div>
-              <button className="w-full py-2 bg-[#12203a] hover:bg-[#2979ff] text-[#e8f2ff] text-[9px] font-mono uppercase transition-all duration-300 group-hover:tracking-[2px]">
-                Refresh Intel
-              </button>
-            </div>
-            <div className="mt-4 font-mono text-[7px] text-[#3a5070] leading-relaxed opacity-50">
-              ⚙ MODELO: Prophet-JS v2.4<br/>
-              y(t) = trend(t) + seasonality(t) + events(t) + ε<br/>
-              Intervalo conf: 80% · Monte Carlo: 10k
-            </div>
-          </div>
-        </aside>
       </main>
+
+      {/* Open Claw Config Dialog */}
+      <AnimatePresence>
+        {isConfigOpen && (
+          <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsConfigOpen(false)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-lg bg-[#080d1a] border border-[#12203a] shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden"
+            >
+              <div className="px-6 py-4 border-b border-[#12203a] flex justify-between items-center bg-[#0a0f1e]">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[#2979ff]/10 border border-[#2979ff]/30 rounded flex items-center justify-center">
+                    <Cpu className="text-[#2979ff]" size={18} />
+                  </div>
+                  <h3 className="font-orbitron text-xs font-bold text-[#e8f2ff] tracking-[2px] uppercase">Open Claw Configuration</h3>
+                </div>
+                <button onClick={() => setIsConfigOpen(false)} className="text-[#3a5070] hover:text-[#e8f2ff]"><X size={20} /></button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-[#3a5070] uppercase tracking-widest">LLM Model Selection</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Fast)', desc: 'Optimized for real-time SITREP' },
+                      { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Deep)', desc: 'Advanced strategic reasoning' },
+                      { id: 'gemini-2.5-flash-latest', name: 'Gemini 2.5 Flash', desc: 'Legacy stability' }
+                    ].map(m => (
+                      <button 
+                        key={m.id}
+                        onClick={() => updateSettings({ llmModel: m.id })}
+                        className={`p-3 border text-left transition-all ${userSettings.llmModel === m.id ? 'bg-[#2979ff]/10 border-[#2979ff] text-[#e8f2ff]' : 'bg-[#04060d] border-[#12203a] text-[#3a5070] hover:border-[#3a5070]'}`}
+                      >
+                        <div className="text-[11px] font-bold uppercase">{m.name}</div>
+                        <div className="text-[9px] opacity-60 font-mono">{m.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-[#3a5070] uppercase tracking-widest">Agent Personality</label>
+                  <select 
+                    value={userSettings.agentPersonality}
+                    onChange={(e) => updateSettings({ agentPersonality: e.target.value })}
+                    className="w-full bg-[#04060d] border border-[#12203a] p-3 text-[#e8f2ff] text-[11px] font-mono outline-none focus:border-[#2979ff]"
+                  >
+                    <option value="Tactical">Tactical (Direct & Brief)</option>
+                    <option value="Diplomatic">Diplomatic (Nuanced & Balanced)</option>
+                    <option value="Aggressive">Aggressive (Focus on Conflict)</option>
+                    <option value="Academic">Academic (Data-Heavy & Historical)</option>
+                  </select>
+                </div>
+
+                {!user && (
+                  <div className="p-4 bg-[#ff2233]/5 border border-[#ff2233]/20 rounded flex items-start gap-3">
+                    <ShieldAlert className="text-[#ff2233] shrink-0" size={16} />
+                    <p className="text-[10px] text-[#b8cce0] leading-relaxed">
+                      <span className="text-[#ff2233] font-bold">WARNING:</span> You are currently in Guest Mode. Settings will not persist across sessions. Use <button onClick={handleLogin} className="text-[#2979ff] underline">Google Auth</button> to sync configurations.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 bg-[#0a0f1e] border-t border-[#12203a] flex justify-end">
+                <button 
+                  onClick={() => setIsConfigOpen(false)}
+                  className="px-6 py-2 bg-[#2979ff] text-black text-[10px] font-orbitron font-black uppercase tracking-widest hover:bg-[#00cfff] transition-colors"
+                >
+                  Apply Config
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Noise Overlay */}
       <div className="fixed inset-0 pointer-events-none z-[9999] opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
