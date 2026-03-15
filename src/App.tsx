@@ -624,6 +624,39 @@ interface ImpactPoint {
   timestamp: string;
 }
 
+interface RadarPing {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  type: 'strike' | 'outage' | 'movement';
+  timestamp: string;
+}
+
+const RADAR_PINGS: RadarPing[] = [
+  { id: 'rp1', lat: 35.54, lng: 51.43, label: 'STRIKE: SHAHR-E REY', type: 'strike', timestamp: '2026-03-07T19:01:00Z' },
+  { id: 'rp2', lat: 25.11, lng: 51.31, label: 'OUTAGE: AWS UAE', type: 'outage', timestamp: '2026-03-03T10:00:00Z' },
+  { id: 'rp3', lat: 26.59, lng: 56.45, label: 'MOVEMENT: NAVAL HORMUZ', type: 'movement', timestamp: '2026-03-14T08:00:00Z' },
+  { id: 'rp4', lat: 31.91, lng: 34.89, label: 'STRIKE: TEL AVIV SUL', type: 'strike', timestamp: '2026-03-07T20:43:00Z' },
+];
+
+interface TimelineDay {
+  day: number;
+  date: string;
+  usScore: number;
+  iranScore: number;
+  events: string[];
+}
+
+const WAR_TIMELINE: TimelineDay[] = [
+  { day: 1, date: '2026-02-28', usScore: 65, iranScore: 35, events: ['Início das hostilidades', 'Mobilização CENTCOM'] },
+  { day: 4, date: '2026-03-03', usScore: 68, iranScore: 32, events: ['Degradação AWS UAE', 'Bloqueio parcial Hormuz'] },
+  { day: 6, date: '2026-03-05', usScore: 70, iranScore: 30, events: ['Baseline térmica Shahr-e Rey', 'Ataque milícias Iraque'] },
+  { day: 8, date: '2026-03-07', usScore: 75, iranScore: 25, events: ['Ataque Refinaria Shahr-e Rey', 'Strike Tel Aviv Sul'] },
+  { day: 10, date: '2026-03-09', usScore: 72, iranScore: 28, events: ['Relatório Geospatial v2.0', 'Petróleo +27%'] },
+  { day: 14, date: '2026-03-14', usScore: 74, iranScore: 26, events: ['Status Regional: Alerta Máximo', 'Hormuz paralisado'] },
+];
+
 interface MapPoint {
   id: string;
   name: string;
@@ -723,20 +756,56 @@ const IMPACT_POINTS: ImpactPoint[] = [
 
 // --- Components ---
 
-const RadarOverlay = () => {
+const RadarOverlay = ({ currentDay }: { currentDay: number }) => {
+  const [rotation, setRotation] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRotation(prev => (prev + 2) % 360);
+    }, 20);
+    return () => clearInterval(interval);
+  }, []);
+
+  const activePings = RADAR_PINGS.filter(ping => {
+    const pingDate = new Date(ping.timestamp);
+    const timelineDate = new Date(WAR_TIMELINE.find(d => d.day === currentDay)?.date || '');
+    return pingDate <= timelineDate;
+  });
+
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden z-[1001]">
-      <motion.div 
-        animate={{ rotate: 360 }}
-        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+      <div 
         className="absolute top-1/2 left-1/2 w-[200%] h-[200%] -translate-x-1/2 -translate-y-1/2 origin-center"
         style={{
+          transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
           background: 'conic-gradient(from 0deg, transparent 0%, rgba(0, 207, 255, 0.15) 10%, transparent 20%)'
         }}
       />
       <div className="absolute inset-0 border-[0.5px] border-[#00cfff]/10 rounded-full scale-[0.25]" />
       <div className="absolute inset-0 border-[0.5px] border-[#00cfff]/10 rounded-full scale-[0.5]" />
       <div className="absolute inset-0 border-[0.5px] border-[#00cfff]/10 rounded-full scale-[0.75]" />
+      
+      {/* Radar Pings */}
+      {activePings.map(ping => {
+        // Simple mapping from lat/lng to % for visual representation on radar
+        // This is a mock mapping for the visual radar effect
+        const x = ((ping.lng - 45) / 20) * 100;
+        const y = (1 - (ping.lat - 20) / 20) * 100;
+        
+        return (
+          <motion.div
+            key={ping.id}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 0.8, scale: 1 }}
+            className="absolute w-2 h-2 bg-[#00cfff] rounded-full shadow-[0_0_10px_#00cfff]"
+            style={{ left: `${x}%`, top: `${y}%` }}
+          >
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap text-[6px] font-mono text-[#00cfff] bg-black/50 px-1">
+              {ping.label}
+            </div>
+          </motion.div>
+        );
+      })}
     </div>
   );
 };
@@ -960,7 +1029,7 @@ const WarBalanceSheet = () => {
 };
 
 // --- Map Component ---
-const OpenInfraMap = () => {
+const OpenInfraMap = ({ currentDay }: { currentDay: number }) => {
   const [baseLayer, setBaseLayer] = useState<'satellite' | 'street'>('satellite');
   const [activeLayers, setActiveLayers] = useState<string[]>(['conflict', 'military', 'power', 'military_base']);
   
@@ -987,9 +1056,22 @@ const OpenInfraMap = () => {
     });
   };
 
+  const currentTimelineDate = new Date(WAR_TIMELINE.find(d => d.day === currentDay)?.date || '');
+
+  const filteredMapPoints = MAP_POINTS.filter(p => {
+    // Mock logic: some points only appear after certain dates
+    if (p.id === 'c1' && currentDay < 4) return false;
+    if (p.id === 'c2' && currentDay < 6) return false;
+    return activeLayers.includes(p.type);
+  });
+
+  const filteredImpactPoints = IMPACT_POINTS.filter(p => {
+    return new Date(p.timestamp) <= currentTimelineDate;
+  });
+
   return (
     <div className="relative h-[600px] w-full border border-[#12203a] bg-[#04060d]">
-      <RadarOverlay />
+      <RadarOverlay currentDay={currentDay} />
       
       {/* Layer Controls */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
@@ -1092,7 +1174,7 @@ const OpenInfraMap = () => {
         />
         
         {/* Infrastructure & Conflict Markers */}
-        {MAP_POINTS.filter(p => activeLayers.includes(p.type)).map(point => (
+        {filteredMapPoints.map(point => (
           <Marker 
             key={point.id} 
             position={[point.lat, point.lng]}
@@ -1113,7 +1195,7 @@ const OpenInfraMap = () => {
         ))}
 
         {/* Impact Points (Military BDA) */}
-        {activeLayers.includes('military') && IMPACT_POINTS.map(point => (
+        {activeLayers.includes('military') && filteredImpactPoints.map(point => (
           <Marker 
             key={`impact-${point.id}`} 
             position={[point.lat, point.lng]}
@@ -1151,24 +1233,20 @@ const OpenInfraMap = () => {
 // --- Main App ---
 
 export default function App() {
+  const [currentDay, setCurrentDay] = useState(14);
   const [usScore, setUsScore] = useState(0);
   const [iranScore, setIranScore] = useState(0);
 
-  const calculatedUsTotal = useMemo(() => 
-    Math.round(DIMENSIONS.reduce((a, d) => a + d.us, 0) / DIMENSIONS.length), []
-  );
-  
-  const calculatedIranTotal = useMemo(() => 
-    Math.round(DIMENSIONS.reduce((a, d) => a + d.iran, 0) / DIMENSIONS.length), []
-  );
+  const currentTimeline = useMemo(() => {
+    // Find the closest day in timeline that is <= currentDay
+    const sorted = [...WAR_TIMELINE].sort((a, b) => b.day - a.day);
+    return sorted.find(d => d.day <= currentDay) || WAR_TIMELINE[0];
+  }, [currentDay]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setUsScore(calculatedUsTotal);
-      setIranScore(calculatedIranTotal);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [calculatedUsTotal, calculatedIranTotal]);
+    setUsScore(currentTimeline.usScore);
+    setIranScore(currentTimeline.iranScore);
+  }, [currentTimeline]);
 
   const diff = usScore - iranScore;
 
@@ -1184,13 +1262,32 @@ export default function App() {
             LINHA VITÓRIA/DERROTA · DECOMPOSIÇÃO TEMPORAL · SATÉLITE OPENINFRA
           </p>
         </div>
-        <div className="flex gap-3">
-          <div className="px-3 py-1 border border-[#aa44ff] text-[#aa44ff] bg-[#aa44ff]/10 text-[9px] font-mono tracking-widest uppercase">
-            PROPHET-JS v1.0
+        <div className="flex gap-6 items-center">
+          {/* Timeline Controller */}
+          <div className="flex flex-col gap-1 min-w-[200px]">
+            <div className="flex justify-between text-[8px] font-mono text-[#3a5070] uppercase">
+              <span>Dia 1</span>
+              <span>Dia {currentDay}</span>
+              <span>Dia 15</span>
+            </div>
+            <input 
+              type="range" 
+              min="1" 
+              max="15" 
+              value={currentDay}
+              onChange={(e) => setCurrentDay(parseInt(e.target.value))}
+              className="w-full h-1 bg-[#12203a] rounded-lg appearance-none cursor-pointer accent-[#00cfff]"
+            />
           </div>
-          <div className="px-3 py-1 border border-[#00e676] text-[#00e676] bg-[#00e676]/10 text-[9px] font-mono tracking-widest uppercase flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#00e676] animate-pulse" />
-            LIVE D+14 · 15 MAR 2026
+
+          <div className="flex gap-3">
+            <div className="px-3 py-1 border border-[#aa44ff] text-[#aa44ff] bg-[#aa44ff]/10 text-[9px] font-mono tracking-widest uppercase">
+              PROPHET-JS v1.0
+            </div>
+            <div className="px-3 py-1 border border-[#00e676] text-[#00e676] bg-[#00e676]/10 text-[9px] font-mono tracking-widest uppercase flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00e676] animate-pulse" />
+              LIVE D+{currentDay} · {currentTimeline.date}
+            </div>
           </div>
         </div>
       </header>
@@ -1205,9 +1302,19 @@ export default function App() {
               <h2 className="font-orbitron text-xs font-bold text-[#ffc600] tracking-[3px] uppercase">
                 PLACAR DE GUERRA — VANTAGEM ESTRATÉGICA
               </h2>
-              <span className="px-2 py-0.5 border border-[#00cfff] text-[#00cfff] text-[9px] font-mono uppercase tracking-widest">
-                100 PONTOS TOTAIS · 12 DIMENSÕES
-              </span>
+              <div className="flex gap-4 items-center">
+                <div className="flex flex-col items-end">
+                  <span className="text-[8px] font-mono text-[#3a5070] uppercase">Eventos do Dia</span>
+                  <div className="flex gap-2">
+                    {currentTimeline.events.map((ev, i) => (
+                      <span key={i} className="text-[9px] font-mono text-[#00cfff]">{ev}</span>
+                    ))}
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 border border-[#00cfff] text-[#00cfff] text-[9px] font-mono uppercase tracking-widest">
+                  100 PONTOS TOTAIS · 12 DIMENSÕES
+                </span>
+              </div>
             </div>
 
             <div className="flex justify-between items-end mb-6">
@@ -1220,7 +1327,7 @@ export default function App() {
               </div>
               <div className="text-center">
                 <div className="font-orbitron text-sm text-[#ffc600] tracking-[4px] font-bold">VS</div>
-                <div className="font-mono text-[9px] text-[#3a5070] mt-1 uppercase">Atualizado D+14</div>
+                <div className="font-mono text-[9px] text-[#3a5070] mt-1 uppercase">Atualizado D+{currentDay}</div>
               </div>
               <div className="text-right">
                 <div className="font-orbitron text-[13px] font-bold text-[#ff2233] tracking-widest mb-1 uppercase">🇮🇷 IRÃO</div>
@@ -1272,7 +1379,7 @@ export default function App() {
                 <span className="px-2 py-0.5 border border-[#ff2233] text-[#ff2233] text-[8px] font-mono uppercase">Hormuz: Alerta</span>
               </div>
             </div>
-            <OpenInfraMap />
+            <OpenInfraMap currentDay={currentDay} />
           </section>
 
           {/* US Military Dashboard */}
